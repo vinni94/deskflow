@@ -71,7 +71,18 @@ INSERT INTO seats (id, type, zone) VALUES
   ('S3','std','Alpha Wing'),
   ('S4','std','Alpha Wing'),
   ('S5','std','Bravo Wing'),
-  ('S6','std','Bravo Wing')
+  ('S6','std','Bravo Wing'),
+  ('S7','std','Bravo Wing'),
+  ('S8','std','Bravo Wing'),
+  ('S9','std','Bravo Wing'),
+  ('S10','std','Bravo Wing'),
+  ('S11','std','Charlie Wing'),
+  ('S12','std','Charlie Wing'),
+  ('S13','std','Charlie Wing'),
+  ('S14','std','Charlie Wing'),
+  ('S15','std','Charlie Wing'),
+  ('F9','flexi','Flexi Zone'),
+  ('F10','flexi','Flexi Zone')
 ON CONFLICT DO NOTHING;
 
 -- NOTE: User seeds are handled by the application seed script (npm run seed)

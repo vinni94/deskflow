@@ -127,13 +127,6 @@ function renderAuth() {
           <button type="button" class="pw-toggle" onclick="togglePw('a-pass',this)">👁</button>
         </div>
       </div>
-      <div class="field"><label>Account type</label>
-        <div class="auth-role-sel" id="role-sel">
-          <div class="role-opt active" onclick="selRole('user',this)">🙋 Employee</div>
-          <div class="role-opt" onclick="selRole('admin',this)">⚙️ Admin</div>
-        </div>
-      </div>
-      <button class="auth-btn" onclick="doSignup()">Create account →</button>
       <div class="auth-switch">Already have an account? <span onclick="setAuthMode('login')">Sign in</span></div>`;
   }
 }
@@ -181,7 +174,7 @@ async function doSignup() {
   const btn = document.querySelector('.auth-btn');
   btn.textContent = 'Creating…'; btn.disabled = true;
   try {
-    const { token, user } = await api.register(name, email, pass, authRole);
+    const { token, user } = await api.register(name, email, pass, 'user');
     saveToken(token);
     loginSuccess(user);
   } catch (err) {
@@ -385,7 +378,7 @@ async function renderMap() {
 
     const flexiHTML = seatsByType('flexi').map(mkSeat).join('');
     const stdHTML   = seatsByType('std').map(mkSeat).join('');
-    const empty     = Math.max(0, 8 - seatsByType('std').length);
+    const empty     = Math.max(0, 16 - seatsByType('std').length);
     const emptyHTML = `<div class="seat empty"></div>`.repeat(empty);
 
     el('main-content').innerHTML = `
@@ -406,6 +399,7 @@ async function renderMap() {
           <div class="area-label" style="grid-column:span 8">STANDARD DESKS <div class="area-divider"></div></div>
           ${stdHTML}${emptyHTML}
         </div>
+        <img src="Toren2.png" alt="Office Floor Plan" style="width:100%;max-width:700px;margin-top:24px;border-radius:10px;border:1px solid var(--border);display:block;" />
       </div>`;
   } catch (err) {
     showErrorState(err.message);
@@ -445,6 +439,7 @@ function getSeatIcon(cls) {
 let _tooltipSeats = {};    // cache from last loadSeats for tooltip use
 
 async function showTooltipForSeat(e, seatId, dk) {
+  if (_hideTooltipTimer) { clearTimeout(_hideTooltipTimer); _hideTooltipTimer = null; }
   const seats = await loadSeats(dk);
   const s     = seats.find(x => x.id === seatId);
   const u     = state.currentUser;
@@ -485,10 +480,14 @@ async function showTooltipForSeat(e, seatId, dk) {
   tt.style.left = x + 'px'; tt.style.top = y + 'px';
 }
 
+let _hideTooltipTimer = null;
+
 function hideTooltip() {
-  const tt = el('tooltip');
-  tt.style.opacity = '0';
-  setTimeout(() => { tt.style.display = 'none'; }, 100);
+  _hideTooltipTimer = setTimeout(() => {
+    const tt = el('tooltip');
+    tt.style.opacity = '0';
+    setTimeout(() => { tt.style.display = 'none'; }, 100);
+  }, 120);
 }
 
 // ── SEAT CLICK (BUG 2 FIX) ───────────────────────────────────
@@ -592,26 +591,35 @@ async function onSeatClick(seatId, dk) {
 
 // ── ABSENCES ──────────────────────────────────────────────────
 async function renderAbsence() {
-  const ws   = weekStart(state.selectedDate);
-  const week = getWeekDays(state.selectedDate);
   const today = new Date();
+  const todayMidnight = new Date(); todayMidnight.setHours(0,0,0,0);
+
+  // Remaining days this week + all of next week
+  const thisWeek = getWeekDays(today);
+  const nextMonday = new Date(todayMidnight);
+  const dow = nextMonday.getDay() || 7;
+  nextMonday.setDate(nextMonday.getDate() + (8 - dow));
+  const nextWeek = getWeekDays(nextMonday);
+  const allDays = [...thisWeek.filter(d => d >= todayMidnight), ...nextWeek];
+
+  const ws1 = weekStart(today);
+  const ws2 = weekStart(nextMonday);
   try {
-    let absences = state.absencesCache[ws];
-    if (!absences) {
-      absences = await api.getAbsences(ws);
-      state.absencesCache[ws] = absences;
+    for (const ws of [ws1, ws2]) {
+      if (!state.absencesCache[ws]) {
+        state.absencesCache[ws] = await api.getAbsences(ws);
+      }
     }
-    // Pivot to map: { 'YYYY-MM-DD': {AM:bool, PM:bool} }
     const absMap = {};
-    absences.forEach(a => {
-      const dk = dateKey(new Date(a.date));   // normalize ISO → YYYY-MM-DD local
+    [...(state.absencesCache[ws1]||[]), ...(state.absencesCache[ws2]||[])].forEach(a => {
+      const dk = dateKey(new Date(a.date));
       if (!absMap[dk]) absMap[dk] = {};
       absMap[dk][a.period] = true;
     });
 
     const u = state.currentUser;
     let html = `<div class="week-grid">`;
-    week.forEach(day => {
+    allDays.forEach(day => {
       const dk      = dateKey(day);
       const isToday = dateKey(today) === dk;
       const abs     = absMap[dk] || {};
@@ -645,7 +653,7 @@ function timeBl(period, absent, dk) {
 }
 
 // async function toggleAbsence(dk, period) {
-//   const ws = weekStart(state.selectedDate);
+//   const ws = weekStart(new Date(dk));
 //   let abs  = state.absencesCache[ws];
 //   const absMap = {};
 //   (abs||[]).forEach(a => { if (!absMap[a.date]) absMap[a.date]={}; absMap[a.date][a.period]=true; });
@@ -667,7 +675,7 @@ function timeBl(period, absent, dk) {
 
 async function toggleAbsence(dk, period, blockEl) {
   const isAbsent = !!(blockEl && blockEl.classList.contains('absent'));
-  const ws = weekStart(state.selectedDate);
+  const ws = weekStart(new Date(dk));
 
   try {
     if (isAbsent) {

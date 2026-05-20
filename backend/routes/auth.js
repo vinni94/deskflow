@@ -24,7 +24,7 @@ router.post('/register', async (req, res) => {
     return res.status(400).json({ error: 'Password must be at least 6 characters' });
   }
   // Validate role — users cannot self-promote to admin in open registration
-  const safeRole = role === 'admin' ? 'admin' : 'user';
+  const safeRole = 'user'; // role is always user on self-registration
 
   try {
     const exists = await pool.query('SELECT id FROM users WHERE email=$1', [email.toLowerCase()]);
