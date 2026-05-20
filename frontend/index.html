@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DeskFlow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ── RESET & TOKENS ─────────────────────────────────────────── */
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f0f13;
+  --surface:#16161d;
+  --surface2:#1e1e28;
+  --surface3:#252530;
+  --border:#2a2a38;
+  --border2:#363648;
+  --text:#e8e8f0;
+  --text2:#9090a8;
+  --text3:#606078;
+  --accent:#7c6af5;
+  --accent2:#a08cff;
+  --accent-bg:rgba(124,106,245,0.12);
+  --green:#4caf7d;
+  --green-bg:rgba(76,175,125,0.12);
+  --amber:#f5a623;
+  --amber-bg:rgba(245,166,35,0.12);
+  --red:#f05c5c;
+  --red-bg:rgba(240,92,92,0.12);
+  --blue:#5c9bf5;
+  --blue-bg:rgba(92,155,245,0.12);
+  --r:10px;--r2:14px;
+  font-family:'DM Sans',sans-serif;
+}
+body{background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+button{font-family:'DM Sans',sans-serif;cursor:pointer;border:none;outline:none}
+input{font-family:'DM Sans',sans-serif;outline:none}
+
+/* ── AUTH ────────────────────────────────────────────────────── */
+#auth-screen{
+  min-height:100vh;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(124,106,245,0.15) 0%,transparent 70%);
+}
+.auth-card{
+  background:var(--surface);border:1px solid var(--border2);border-radius:20px;
+  padding:40px;width:420px;
+}
+.auth-logo{display:flex;align-items:center;gap:10px;margin-bottom:32px}
+.auth-logo-icon{width:36px;height:36px;background:var(--accent);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px}
+.auth-logo-text{font-size:22px;font-weight:600;letter-spacing:-0.5px}
+.auth-title{font-size:24px;font-weight:600;margin-bottom:6px;letter-spacing:-0.5px}
+.auth-sub{font-size:14px;color:var(--text2);margin-bottom:28px}
+.field{margin-bottom:16px}
+.field label{display:block;font-size:13px;font-weight:500;color:var(--text2);margin-bottom:6px}
+.field input{
+  width:100%;background:var(--surface2);border:1px solid var(--border2);
+  border-radius:var(--r);padding:11px 14px;color:var(--text);font-size:14px;
+  transition:border-color 0.2s;
+}
+.field input:focus{border-color:var(--accent)}
+.field input::placeholder{color:var(--text3)}
+.pw-wrap{position:relative}
+.pw-wrap input{padding-right:44px}
+.pw-toggle{
+  position:absolute;right:12px;top:50%;transform:translateY(-50%);
+  background:none;font-size:14px;color:var(--text3);transition:color 0.15s;
+}
+.pw-toggle:hover{color:var(--text)}
+.auth-btn{
+  width:100%;padding:12px;background:var(--accent);color:#fff;
+  border-radius:var(--r);font-size:14px;font-weight:600;
+  transition:opacity 0.2s,transform 0.1s;margin-top:6px;
+}
+.auth-btn:hover{opacity:0.9}
+.auth-btn:active{transform:scale(0.99)}
+.auth-btn:disabled{opacity:0.5;cursor:not-allowed}
+.auth-switch{text-align:center;margin-top:20px;font-size:13px;color:var(--text2)}
+.auth-switch span{color:var(--accent);cursor:pointer;font-weight:500}
+.auth-switch span:hover{text-decoration:underline}
+.auth-error{background:var(--red-bg);border:1px solid rgba(240,92,92,0.3);border-radius:var(--r);padding:10px 14px;font-size:13px;color:var(--red);margin-bottom:14px}
+.auth-role-sel{display:flex;gap:8px}
+.role-opt{flex:1;padding:9px;border:1px solid var(--border2);border-radius:var(--r);font-size:13px;cursor:pointer;text-align:center;background:var(--surface2);color:var(--text2);transition:all 0.15s}
+.role-opt.active{border-color:var(--accent);background:var(--accent-bg);color:var(--accent);font-weight:500}
+.demo-hint{margin-top:14px;padding:10px;background:var(--surface2);border-radius:8px;font-size:11px;color:var(--text3);line-height:1.6;text-align:center}
+
+/* ── APP SHELL ───────────────────────────────────────────────── */
+#app{display:flex;height:100vh;overflow:hidden}
+
+/* ── SIDEBAR ─────────────────────────────────────────────────── */
+.sidebar{
+  width:220px;min-width:220px;background:var(--surface);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;padding:20px 0;
+}
+.sidebar-logo{display:flex;align-items:center;gap:9px;padding:0 18px;margin-bottom:28px}
+.sidebar-logo-icon{width:30px;height:30px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px}
+.sidebar-logo-text{font-size:18px;font-weight:600;letter-spacing:-0.5px}
+.nav-section{padding:0 10px;margin-bottom:6px}
+.nav-section-title{font-size:10px;font-weight:600;color:var(--text3);letter-spacing:1px;text-transform:uppercase;padding:0 8px;margin-bottom:6px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:var(--r);cursor:pointer;font-size:13.5px;color:var(--text2);transition:all 0.15s;margin-bottom:2px}
+.nav-item:hover{background:var(--surface2);color:var(--text)}
+.nav-item.active{background:var(--accent-bg);color:var(--accent);font-weight:500}
+.nav-icon{font-size:16px;width:18px;text-align:center}
+.sidebar-bottom{margin-top:auto;padding:0 10px}
+.user-card{background:var(--surface2);border-radius:var(--r);padding:12px;display:flex;align-items:center;gap:10px}
+.user-avatar{width:32px;height:32px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;color:#fff;flex-shrink:0}
+.user-info{min-width:0;flex:1}
+.user-name{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.user-role{font-size:11px;color:var(--text3)}
+.user-actions{display:flex;gap:4px}
+.icon-btn{background:none;font-size:14px;color:var(--text3);padding:4px;border-radius:6px;transition:color 0.15s;line-height:1}
+.icon-btn:hover{color:var(--text)}
+.logout-btn:hover{color:var(--red)!important}
+
+/* ── MAIN ────────────────────────────────────────────────────── */
+.main{flex:1;overflow-y:auto;display:flex;flex-direction:column;min-width:0}
+.topbar{
+  background:var(--surface);border-bottom:1px solid var(--border);
+  padding:16px 28px;display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:20;
+}
+.topbar-title{font-size:18px;font-weight:600;letter-spacing:-0.4px}
+.topbar-right{display:flex;align-items:center;gap:10px}
+
+/* ── DATE NAV ────────────────────────────────────────────────── */
+.date-nav{position:relative;display:flex;align-items:center;gap:6px}
+.date-btn{
+  width:30px;height:30px;background:var(--surface2);border:1px solid var(--border2);
+  border-radius:8px;display:flex;align-items:center;justify-content:center;
+  font-size:14px;color:var(--text2);transition:all 0.15s;
+}
+.date-btn:hover{color:var(--text);background:var(--surface3)}
+.date-trigger{
+  min-width:200px;height:34px;padding:0 12px;
+  background:var(--surface2);border:1px solid var(--border2);border-radius:10px;
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  color:var(--text);font-size:13px;font-weight:500;transition:all 0.15s;
+}
+.date-trigger:hover{background:var(--surface3);border-color:var(--accent)}
+.date-trigger-caret{color:var(--text3);font-size:11px;transition:transform 0.15s}
+.date-trigger.open .date-trigger-caret{transform:rotate(180deg)}
+
+/* ── CALENDAR POPOVER ───────────────────────────────────────── */
+.calendar-popover{
+  position:absolute;top:44px;right:0;width:300px;
+  background:var(--surface);border:1px solid var(--border2);border-radius:16px;
+  box-shadow:0 16px 40px rgba(0,0,0,0.45);padding:14px;
+  display:none;z-index:100;
+}
+.calendar-popover.open{display:block}
+.calendar-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.calendar-month-label{font-size:13px;font-weight:600}
+.calendar-month-btn{
+  width:28px;height:28px;background:var(--surface2);border:1px solid var(--border2);
+  border-radius:8px;color:var(--text2);display:flex;align-items:center;justify-content:center;
+  transition:all 0.15s;font-size:15px;
+}
+.calendar-month-btn:hover{background:var(--surface3);color:var(--text)}
+.calendar-weekdays{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:6px}
+.calendar-weekday{text-align:center;font-size:10px;font-weight:600;color:var(--text3);letter-spacing:0.6px;text-transform:uppercase;padding:4px 0}
+.calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.calendar-day{
+  height:32px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);
+  color:var(--text);font-size:12px;font-weight:500;
+  display:flex;align-items:center;justify-content:center;
+  transition:all 0.15s;cursor:pointer;
+}
+.calendar-day:hover:not(.disabled){background:var(--surface3);border-color:var(--accent)}
+.calendar-day.muted{color:var(--text3);background:rgba(255,255,255,0.01)}
+.calendar-day.weekend{opacity:0.4;cursor:not-allowed}
+.calendar-day.disabled{cursor:not-allowed}
+.calendar-day.selected{background:var(--accent-bg);border-color:var(--accent);color:var(--accent2)}
+.calendar-day.today{box-shadow:inset 0 0 0 1px rgba(124,106,245,0.5)}
+.calendar-foot{margin-top:10px;display:flex;justify-content:space-between;gap:8px}
+.calendar-foot .btn{flex:1;padding:8px 12px;font-size:12px}
+
+/* ── CONTENT ─────────────────────────────────────────────────── */
+.content{padding:24px 28px;flex:1}
+
+/* ── FLOOR MAP ───────────────────────────────────────────────── */
+.map-container{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);
+  padding:24px;overflow:auto;
+}
+.map-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px}
+.map-header-title{font-size:15px;font-weight:600}
+.map-legend{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text2)}
+.legend-dot{width:10px;height:10px;border-radius:3px}
+.floor-grid{
+  display:grid;grid-template-columns:repeat(8,64px);
+  gap:8px;
+}
+.area-label{
+  grid-column:span 8;font-size:10px;font-weight:600;color:var(--text3);
+  letter-spacing:1px;text-transform:uppercase;padding:4px 0 0 2px;
+  display:flex;align-items:center;gap:8px;
+}
+.area-divider{flex:1;height:1px;background:var(--border)}
+
+/* ── SEAT ───────────────────────────────────────────────────── */
+.seat{
+  width:64px;height:64px;border-radius:10px;border:1.5px solid;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  cursor:pointer;transition:all 0.15s;
+}
+.seat-icon{font-size:18px}
+.seat-id{font-size:9px;font-weight:600;opacity:0.7;font-family:'DM Mono',monospace}
+.seat.flexi-free{background:var(--blue-bg);border-color:rgba(92,155,245,0.4);color:var(--blue)}
+.seat.flexi-free:hover{background:rgba(92,155,245,0.22);border-color:var(--blue);transform:scale(1.05)}
+.seat.flexi-booked{background:var(--surface2);border-color:var(--border2);color:var(--text3);cursor:default}
+.seat.flexi-mine{background:rgba(92,155,245,0.25);border-color:var(--blue);color:var(--blue)}
+.seat.flexi-mine:hover{transform:scale(1.05)}
+.seat.std-owner{background:var(--accent-bg);border-color:rgba(124,106,245,0.4);color:var(--accent)}
+.seat.std-owner:hover{background:rgba(124,106,245,0.22);border-color:var(--accent);transform:scale(1.05)}
+.seat.std-free{background:var(--green-bg);border-color:rgba(76,175,125,0.4);color:var(--green)}
+.seat.std-free:hover{background:rgba(76,175,125,0.22);border-color:var(--green);transform:scale(1.05)}
+.seat.std-occupied{background:var(--surface2);border-color:var(--border2);color:var(--text3);cursor:default}
+.seat.std-mine-booked{background:rgba(76,175,125,0.22);border-color:var(--green);color:var(--green)}
+.seat.std-mine-booked:hover{transform:scale(1.05)}
+.seat.empty{background:transparent;border:none;cursor:default}
+
+/* ── TOOLTIP ────────────────────────────────────────────────── */
+.tooltip{
+  position:fixed;background:var(--surface3);border:1px solid var(--border2);
+  border-radius:var(--r);padding:10px 13px;font-size:12px;pointer-events:none;
+  z-index:1000;min-width:165px;box-shadow:0 8px 24px rgba(0,0,0,0.4);
+  transition:opacity 0.1s;
+}
+.tooltip-title{font-weight:600;margin-bottom:4px;font-size:13px}
+.tooltip-row{display:flex;justify-content:space-between;gap:16px;margin-top:3px}
+.tooltip-label{color:var(--text2)}
+.tooltip-val{font-weight:500}
+.t-green{color:var(--green)}
+.t-blue{color:var(--blue)}
+.t-amber{color:var(--amber)}
+.t-red{color:var(--red)}
+.t-purple{color:var(--accent)}
+
+/* ── MODAL ──────────────────────────────────────────────────── */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:500;
+  display:flex;align-items:center;justify-content:center;
+}
+.modal{
+  background:var(--surface);border:1px solid var(--border2);border-radius:var(--r2);
+  padding:28px;width:380px;
+}
+.modal-title{font-size:17px;font-weight:600;margin-bottom:6px;letter-spacing:-0.4px}
+.modal-sub{font-size:13px;color:var(--text2);margin-bottom:4px;line-height:1.5}
+.modal-actions{display:flex;gap:10px;margin-top:22px;flex-wrap:wrap}
+.btn{padding:10px 20px;border-radius:var(--r);font-size:13.5px;font-weight:600;transition:all 0.15s}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{opacity:0.9}
+.btn-danger{background:var(--red-bg);color:var(--red);border:1px solid rgba(240,92,92,0.3)}
+.btn-danger:hover{background:rgba(240,92,92,0.22)}
+.btn-ghost{background:var(--surface2);color:var(--text2);border:1px solid var(--border2)}
+.btn-ghost:hover{color:var(--text)}
+.btn-green{background:var(--green-bg);color:var(--green);border:1px solid rgba(76,175,125,0.3)}
+.btn-green:hover{background:rgba(76,175,125,0.22)}
+
+/* ── ABSENCE CALENDAR ───────────────────────────────────────── */
+.week-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:24px}
+.day-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:16px}
+.day-card.today{border-color:rgba(124,106,245,0.5);background:var(--accent-bg)}
+.day-name{font-size:11px;font-weight:600;color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:2px}
+.day-num{font-size:22px;font-weight:600;letter-spacing:-0.5px;margin-bottom:2px}
+.time-blocks{display:flex;flex-direction:column;gap:6px}
+.time-block{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:8px 10px;background:var(--surface2);border-radius:8px;font-size:12px;
+  border:1px solid var(--border);cursor:pointer;transition:all 0.15s;
+}
+.time-block:hover{border-color:var(--border2)}
+.time-block.absent{background:var(--red-bg);border-color:rgba(240,92,92,0.3);color:var(--red)}
+.time-block.absent .time-label{color:var(--red)}
+.time-label{font-size:11px;color:var(--text2);font-family:'DM Mono',monospace}
+.time-status{display:flex;align-items:center;gap:5px;font-weight:500}
+.status-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+
+/* ── MY BOOKINGS ────────────────────────────────────────────── */
+.bookings-list{display:flex;flex-direction:column;gap:10px}
+.booking-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:16px 18px;display:flex;align-items:center;justify-content:space-between}
+.booking-info{display:flex;align-items:center;gap:14px}
+.booking-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;background:var(--surface2)}
+.booking-detail{display:flex;flex-direction:column;gap:3px}
+.booking-seat{font-size:14px;font-weight:600}
+.booking-meta{font-size:12px;color:var(--text2)}
+.badge{padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.badge-flexi{background:var(--blue-bg);color:var(--blue)}
+.badge-std{background:var(--accent-bg);color:var(--accent)}
+
+/* ── ADMIN ──────────────────────────────────────────────────── */
+.admin-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:16px}
+.stat-label{font-size:10px;font-weight:600;color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:6px}
+.stat-val{font-size:28px;font-weight:600;letter-spacing:-1px}
+.stat-sub{font-size:11px;color:var(--text2);margin-top:2px}
+.users-table{width:100%;border-collapse:collapse}
+.users-table th{font-size:11px;font-weight:600;color:var(--text3);text-align:left;padding:0 14px 10px;letter-spacing:0.8px;text-transform:uppercase}
+.users-table td{padding:12px 14px;font-size:13.5px;border-top:1px solid var(--border)}
+.users-table tr:hover td{background:var(--surface2)}
+
+/* ── MISC ───────────────────────────────────────────────────── */
+.info-banner{background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:16px 20px;font-size:13px;color:var(--text2);line-height:1.6}
+.empty-state{text-align:center;padding:60px 20px;color:var(--text3)}
+.loading-spinner{display:flex;align-items:center;justify-content:center;padding:60px}
+.spinner{width:28px;height:28px;border:2.5px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── TOAST ──────────────────────────────────────────────────── */
+#toast-area{position:fixed;bottom:24px;right:24px;display:flex;flex-direction:column;gap:8px;z-index:9999}
+.toast{
+  background:var(--surface3);border:1px solid var(--border2);border-radius:var(--r);
+  padding:12px 18px;font-size:13px;display:flex;align-items:center;gap:8px;
+  box-shadow:0 8px 24px rgba(0,0,0,0.4);
+  animation:toastIn 0.25s ease;
+}
+@keyframes toastIn{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+</style>
+</head>
+<body>
+
+<!-- AUTH -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <div class="auth-logo-icon">🪑</div>
+      <div class="auth-logo-text">DeskFlow</div>
+    </div>
+    <div id="auth-form-area"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" style="display:none">
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-icon">🪑</div>
+      <div class="sidebar-logo-text">DeskFlow</div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-section-title">Workspace</div>
+      <div class="nav-item active" data-view="map"      onclick="setView('map')">      <span class="nav-icon">🗺️</span> Floor Map</div>
+      <div class="nav-item"        data-view="absence"  onclick="setView('absence')">  <span class="nav-icon">📅</span> My Absences</div>
+      <div class="nav-item"        data-view="bookings" onclick="setView('bookings')"> <span class="nav-icon">🎫</span> My Bookings</div>
+    </div>
+
+    <div class="nav-section" id="admin-nav" style="display:none">
+      <div class="nav-section-title">Admin</div>
+      <div class="nav-item" data-view="admin" onclick="setView('admin')"><span class="nav-icon">⚙️</span> Dashboard</div>
+    </div>
+
+    <div class="sidebar-bottom">
+      <div class="user-card">
+        <div class="user-avatar" id="sidebar-avatar">?</div>
+        <div class="user-info">
+          <div class="user-name" id="sidebar-name">Loading…</div>
+          <div class="user-role" id="sidebar-role">—</div>
+        </div>
+        <div class="user-actions">
+          <button class="icon-btn" title="Change password" onclick="showChangePassword()">🔑</button>
+          <button class="icon-btn logout-btn" title="Sign out" onclick="logout()">↩</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-title" id="topbar-title">Floor Map</div>
+      <div class="topbar-right">
+        <div class="date-nav" id="date-nav" style="display:none">
+          <button class="date-btn" onclick="changeDay(-1)">‹</button>
+          <button class="date-trigger" id="date-trigger" onclick="toggleCalendar()">
+            <span class="date-trigger-text" id="date-label">—</span>
+            <span class="date-trigger-caret">▾</span>
+          </button>
+          <button class="date-btn" onclick="changeDay(1)">›</button>
+          <div class="calendar-popover" id="calendar-popover" onclick="event.stopPropagation()"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="content" id="main-content">
+      <div class="loading-spinner"><div class="spinner"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- OVERLAYS -->
+<div class="tooltip" id="tooltip" style="opacity:0;display:none"></div>
+<div id="modal-area"></div>
+<div id="toast-area"></div>
+
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
