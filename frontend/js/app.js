@@ -127,8 +127,13 @@ function renderAuth() {
           <button type="button" class="pw-toggle" onclick="togglePw('a-pass',this)">👁</button>
         </div>
       </div>
+      <button class="auth-btn" onclick="doSignup()">Create account →</button>
       <div class="auth-switch">Already have an account? <span onclick="setAuthMode('login')">Sign in</span></div>`;
   }
+  // Allow pressing Enter to submit
+  el('auth-form-area').onkeydown = (e) => {
+    if (e.key === 'Enter') authMode === 'login' ? doLogin() : doSignup();
+  };
 }
 
 function togglePw(inputId, btn) {
