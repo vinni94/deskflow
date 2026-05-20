@@ -369,8 +369,9 @@ async function renderMap() {
     const u = state.currentUser;
 
     const seatsByType = (type) => seats.filter(s => s.type === type);
+    const hasBookingToday = seats.some(s => s.booked_by_id === u.id);
     const mkSeat = (s) => {
-      const cls  = getSeatClass(s, u);
+      const cls  = getSeatClass(s, u, hasBookingToday);
       const icon = getSeatIcon(cls);
       return `<div class="seat ${cls}"
         onmouseenter="showTooltipForSeat(event,'${esc(s.id)}','${dk}')"
@@ -418,12 +419,13 @@ async function loadSeats(dk) {
   return seats;
 }
 
-function getSeatClass(s, u) {
+function getSeatClass(s, u, hasBookingToday = false) {
   const isMyBooking    = s.booked_by_id === u.id;
   const isOtherBooking = s.booked_by_id && s.booked_by_id !== u.id;
   if (s.type === 'flexi') {
     if (isMyBooking)    return 'flexi-mine';
     if (isOtherBooking) return 'flexi-booked';
+    if (hasBookingToday) return 'flexi-booked'; // already booked elsewhere
     return 'flexi-free';
   }
   if (!s.owner_id) return 'std-occupied';
@@ -431,7 +433,7 @@ function getSeatClass(s, u) {
     return isOtherBooking ? 'std-mine-booked' : 'std-owner';
   }
   const isAbsent = s.absent_periods && s.absent_periods.length > 0;
-  if (isAbsent && !s.booked_by_id) return 'std-free';
+  if (isAbsent && !s.booked_by_id) return hasBookingToday ? 'std-occupied' : 'std-free';
   return 'std-occupied';
 }
 

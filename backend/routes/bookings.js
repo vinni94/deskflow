@@ -33,6 +33,15 @@ router.post('/', requireAuth, async (req, res) => {
       return res.status(409).json({ error: 'Seat already booked for this date' });
     }
 
+    // One booking per user per day
+    const userBooking = await client.query(
+      'SELECT id FROM bookings WHERE user_id=$1 AND date=$2',
+      [req.user.id, date]
+    );
+    if (userBooking.rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'You already have a booking on this date. Cancel it first to book a different seat.' });
+    }
     // For standard seats: verify the owner has marked absence
     if (seat.type === 'std') {
       if (!seat.owner_id) {
