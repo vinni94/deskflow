@@ -7,6 +7,7 @@ const app = express();
 
 // ── CORS ────────────────────────────────────────────────────
 const allowedOrigins = [
+  'https://deskflow-m6pn.onrender.com',
   process.env.FRONTEND_ORIGIN || 'http://localhost:5500',
   'http://localhost:3000',
   'http://localhost:3001',
