@@ -1,11 +1,13 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
+const isProduction = process.env.NODE_ENV === 'production';
+
 const pool = new Pool(
   process.env.DATABASE_URL
     ? {
         connectionString: process.env.DATABASE_URL,
-        ssl: false
+        ssl: isProduction ? { rejectUnauthorized: false } : false
       }
     : {
         host:     process.env.DB_HOST     || 'localhost',
@@ -16,12 +18,19 @@ const pool = new Pool(
       }
 );
 
-// Test connection on startup
-pool.query('SELECT 1').then(() => {
-  console.log('✅ PostgreSQL connected');
-}).catch(err => {
-  console.error('❌ PostgreSQL connection failed:', err.message);
-  process.exit(1);
-});
+async function connectWithRetry(retries = 10, delay = 3000) {
+  for (let i = 1; i <= retries; i++) {
+    try {
+      await pool.query('SELECT 1');
+      console.log('✅ PostgreSQL connected');
+      return;
+    } catch (err) {
+      console.warn(`⏳ DB not ready (attempt ${i}/${retries}): ${err.message}`);
+      if (i === retries) { console.error('❌ DB connection failed'); process.exit(1); }
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+}
 
+connectWithRetry();
 module.exports = pool;
