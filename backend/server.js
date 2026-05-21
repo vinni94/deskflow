@@ -79,7 +79,7 @@ app.use((err, req, res, _next) => {
 
 // ── START ────────────────────────────────────────────────────
 const PORT = parseInt(process.env.PORT || '3001');
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`\n🚀 DeskFlow API running on http://localhost:${PORT}`);
   console.log(`   Frontend served from: ${frontendDir}\n`);
 });
