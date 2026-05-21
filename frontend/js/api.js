@@ -43,7 +43,7 @@ const api = {
   getSeats:       (date)                       => apiFetch(`/seats?date=${date}`),
 
   // Bookings
-  createBooking:  (seatId, date)               => apiFetch('/bookings',            { method:'POST', body:{seatId,date} }),
+  createBooking:  (seatId, date, period)        => apiFetch('/bookings',         { method:'POST', body:{seatId,date,period} }),
   cancelBooking:  (bookingId)                  => apiFetch(`/bookings/${bookingId}`,{ method:'DELETE' }),
   myBookings:     ()                           => apiFetch('/bookings/mine'),
 

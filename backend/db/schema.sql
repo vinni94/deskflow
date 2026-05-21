@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS absences (
   id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id     UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   date        DATE        NOT NULL,
+  period      TEXT        NOT NULL DEFAULT 'full' CHECK (period IN ('AM','PM','full')),
   period      TEXT        NOT NULL CHECK (period IN ('AM','PM')),
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE(user_id, date, period)
@@ -41,8 +42,9 @@ CREATE TABLE IF NOT EXISTS bookings (
   seat_id     TEXT        NOT NULL REFERENCES seats(id) ON DELETE CASCADE,
   user_id     UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   date        DATE        NOT NULL,
+  period      TEXT        NOT NULL DEFAULT 'full' CHECK (period IN ('AM','PM','full')),
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  UNIQUE(seat_id, date)   -- one booking per seat per day
+  UNIQUE(seat_id, date, period)  -- one booking per seat per day per period
 );
 
 -- ============================================================

@@ -4,45 +4,98 @@ const { requireAuth, requireAdmin } = require('../middleware/auth');
 
 // ── POST /api/bookings  — create a booking ─────────────────
 router.post('/', requireAuth, async (req, res) => {
-  const { seatId, date } = req.body;
+  const { seatId, date, period } = req.body;
   if (!seatId || !date) return res.status(400).json({ error: 'seatId and date are required' });
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ error: 'date must be YYYY-MM-DD' });
+  if (!period || !['AM','PM','full'].includes(period))
+    return res.status(400).json({ error: 'period must be AM, PM, or full' });
 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
     // Lock the seat row to prevent race conditions
-    const seatRes = await client.query(
-      'SELECT * FROM seats WHERE id=$1 FOR UPDATE',
-      [seatId]
-    );
+    const seatRes = await client.query('SELECT * FROM seats WHERE id=$1 FOR UPDATE', [seatId]);
     if (!seatRes.rows.length) {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Seat not found' });
     }
     const seat = seatRes.rows[0];
 
-    // Check if seat already booked for this date
+    // Validate period vs seat type
+    if (seat.type === 'flexi' && period !== 'full') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Flexi desks must be booked for the full day (period: full)' });
+    }
+    if (seat.type === 'std' && !['AM','PM'].includes(period)) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Standard desks must be booked for AM or PM' });
+    }
+
+    // Cross-type conflict: user cannot mix flexi and standard bookings on the same day
+    if (seat.type === 'flexi') {
+      const stdConflict = await client.query(
+        `SELECT b.id FROM bookings b
+         JOIN seats s ON s.id = b.seat_id
+         WHERE b.user_id=$1 AND b.date=$2 AND s.type='std'`,
+        [req.user.id, date]
+      );
+      if (stdConflict.rows.length) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ error: 'You already have a standard desk booked that day. Cancel it first to book a flexi desk.' });
+      }
+    }
+    if (seat.type === 'std') {
+      const flexiConflict = await client.query(
+        `SELECT b.id FROM bookings b
+         JOIN seats s ON s.id = b.seat_id
+         WHERE b.user_id=$1 AND b.date=$2 AND s.type='flexi'`,
+        [req.user.id, date]
+      );
+      if (flexiConflict.rows.length) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ error: 'You already have a flexi desk booked that day. Cancel it first to book a standard desk.' });
+      }
+    }
+
+    // Check if this seat+date+period is already booked
     const existing = await client.query(
-      'SELECT id, user_id FROM bookings WHERE seat_id=$1 AND date=$2',
-      [seatId, date]
+      'SELECT id, user_id FROM bookings WHERE seat_id=$1 AND date=$2 AND period=$3',
+      [seatId, date, period]
     );
     if (existing.rows.length) {
       await client.query('ROLLBACK');
-      return res.status(409).json({ error: 'Seat already booked for this date' });
+      return res.status(409).json({ error: 'Seat already booked for this date and period' });
     }
 
-    // One booking per user per day
-    const userBooking = await client.query(
-      'SELECT id FROM bookings WHERE user_id=$1 AND date=$2',
-      [req.user.id, date]
-    );
-    if (userBooking.rows.length) {
-      await client.query('ROLLBACK');
-      return res.status(409).json({ error: 'You already have a booking on this date. Cancel it first to book a different seat.' });
+    if (seat.type === 'flexi') {
+      // One flexi booking per user per day (full day)
+      const userBooking = await client.query(
+        `SELECT b.id FROM bookings b
+         JOIN seats s ON s.id = b.seat_id
+         WHERE b.user_id=$1 AND b.date=$2 AND s.type='flexi'`,
+        [req.user.id, date]
+      );
+      if (userBooking.rows.length) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ error: 'You already have a flexi desk booked for this day.' });
+      }
+    } else {
+      // Standard: one booking per user per period per day
+      const userBooking = await client.query(
+        `SELECT b.id FROM bookings b
+         JOIN seats s ON s.id = b.seat_id
+         WHERE b.user_id=$1 AND b.date=$2 AND b.period=$3 AND s.type='std'`,
+        [req.user.id, date, period]
+      );
+      if (userBooking.rows.length) {
+        await client.query('ROLLBACK');
+        const label = period === 'AM' ? 'morning' : 'afternoon';
+        return res.status(409).json({ error: `You already have a standard desk booked for the ${label} on this date.` });
+      }
     }
-    // For standard seats: verify the owner has marked absence
+
+    // For standard seats: verify the owner has marked absence for this period
     if (seat.type === 'std') {
       if (!seat.owner_id) {
         await client.query('ROLLBACK');
@@ -53,20 +106,20 @@ router.post('/', requireAuth, async (req, res) => {
         return res.status(400).json({ error: 'You cannot book your own assigned seat' });
       }
       const absRes = await client.query(
-        `SELECT COUNT(*) FROM absences WHERE user_id=$1 AND date=$2`,
-        [seat.owner_id, date]
+        `SELECT COUNT(*) FROM absences WHERE user_id=$1 AND date=$2 AND period=$3`,
+        [seat.owner_id, date, period]
       );
       if (parseInt(absRes.rows[0].count) === 0) {
         await client.query('ROLLBACK');
-        return res.status(400).json({ error: 'Seat owner has not marked absence for this date' });
+        return res.status(400).json({ error: `Seat owner has not marked absence for the ${period} period on this date` });
       }
     }
 
     const { rows } = await client.query(
-      `INSERT INTO bookings (seat_id, user_id, date)
-       VALUES ($1,$2,$3)
-       RETURNING id, seat_id, user_id, date`,
-      [seatId, req.user.id, date]
+      `INSERT INTO bookings (seat_id, user_id, date, period)
+       VALUES ($1,$2,$3,$4)
+       RETURNING id, seat_id, user_id, date, period`,
+      [seatId, req.user.id, date, period]
     );
 
     await client.query('COMMIT');
@@ -83,14 +136,10 @@ router.post('/', requireAuth, async (req, res) => {
 // ── DELETE /api/bookings/:id  — cancel a booking ───────────
 router.delete('/:id', requireAuth, async (req, res) => {
   try {
-    const { rows } = await pool.query(
-      'SELECT * FROM bookings WHERE id=$1',
-      [req.params.id]
-    );
+    const { rows } = await pool.query('SELECT * FROM bookings WHERE id=$1', [req.params.id]);
     if (!rows.length) return res.status(404).json({ error: 'Booking not found' });
 
     const booking = rows[0];
-    // Only the booker or an admin can cancel
     if (booking.user_id !== req.user.id && req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Not authorized to cancel this booking' });
     }
@@ -107,11 +156,11 @@ router.delete('/:id', requireAuth, async (req, res) => {
 router.get('/mine', requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      `SELECT b.id, b.seat_id, b.date, s.type AS seat_type, s.zone
+      `SELECT b.id, b.seat_id, b.date, b.period, s.type AS seat_type, s.zone
        FROM bookings b
        JOIN seats s ON s.id = b.seat_id
        WHERE b.user_id=$1
-       ORDER BY b.date ASC`,
+       ORDER BY b.date ASC, b.period ASC`,
       [req.user.id]
     );
     res.json(rows);
@@ -127,13 +176,13 @@ router.get('/', requireAuth, requireAdmin, async (req, res) => {
   if (!date) return res.status(400).json({ error: 'date is required' });
   try {
     const { rows } = await pool.query(
-      `SELECT b.id, b.seat_id, b.date, b.user_id,
+      `SELECT b.id, b.seat_id, b.date, b.period, b.user_id,
               u.name AS user_name, s.type AS seat_type, s.zone
        FROM bookings b
        JOIN users u ON u.id = b.user_id
        JOIN seats s ON s.id = b.seat_id
        WHERE b.date=$1
-       ORDER BY b.seat_id`,
+       ORDER BY b.seat_id, b.period`,
       [date]
     );
     res.json(rows);
