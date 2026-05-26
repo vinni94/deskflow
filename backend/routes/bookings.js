@@ -117,8 +117,8 @@ router.post('/', requireAuth, async (req, res) => {
 
     const { rows } = await client.query(
       `INSERT INTO bookings (seat_id, user_id, date, period)
-       VALUES ($1,$2,$3,$4)
-       RETURNING id, seat_id, user_id, date, period`,
+       VALUES ($1, $2, $3::date, $4)
+       RETURNING id, seat_id, user_id, date::text as date, period`,
       [seatId, req.user.id, date, period]
     );
 
@@ -156,7 +156,7 @@ router.delete('/:id', requireAuth, async (req, res) => {
 router.get('/mine', requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      `SELECT b.id, b.seat_id, b.date, b.period, s.type AS seat_type, s.zone
+      `SELECT b.id, b.seat_id, b.date::text as date, b.period, s.type AS seat_type, s.zone
        FROM bookings b
        JOIN seats s ON s.id = b.seat_id
        WHERE b.user_id=$1
@@ -176,7 +176,7 @@ router.get('/', requireAuth, requireAdmin, async (req, res) => {
   if (!date) return res.status(400).json({ error: 'date is required' });
   try {
     const { rows } = await pool.query(
-      `SELECT b.id, b.seat_id, b.date, b.period, b.user_id,
+      `SELECT b.id, b.seat_id, b.date::text as date, b.period, b.user_id,
               u.name AS user_name, s.type AS seat_type, s.zone
        FROM bookings b
        JOIN users u ON u.id = b.user_id

@@ -173,6 +173,9 @@ async function doSignup() {
 
 function loginSuccess(user) {
   state.currentUser = user;
+  // Clear previous user's absence data
+  absState.absenceMap = {};
+  absState.loaded = false;
   el('auth-screen').style.display = 'none';
   el('app').style.display = 'flex';
   el('sidebar-avatar').textContent = user.name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
@@ -188,6 +191,8 @@ function logout() {
   state.seatsCache  = {};
   state.bookingsCache = null;
   state.absencesCache = {};
+  absState.absenceMap = {};  // Clear absence data on logout
+  absState.loaded = false;
   el('app').style.display = 'none';
   el('admin-nav').style.display = 'none';
   el('auth-screen').style.display = 'flex';
@@ -199,7 +204,7 @@ function logout() {
 function setView(v) {
   state.view = v;
   document.querySelectorAll('.nav-item').forEach(e => e.classList.toggle('active', e.dataset.view === v));
-  const titles = { map:'Floor Map', absence:'My Absences', bookings:'My Bookings', admin:'Admin Dashboard' };
+  const titles = { map:'Floor Map', absence:'My Absences', bookings:'My Bookings', admin:'Admin Dashboard', 'team-absence':'Team Absences' };
   el('topbar-title').textContent = titles[v] || v;
   const showDateNav = v === 'map' || v === 'absence';
   el('date-nav').style.display = showDateNav ? 'flex' : 'none';
@@ -321,6 +326,7 @@ function renderView() {
   else if (state.view === 'absence')  renderAbsence();
   else if (state.view === 'bookings') renderBookings();
   else if (state.view === 'admin')    renderAdmin();
+  else if (state.view === 'team-absence') renderTeamAbsences();
 }
 
 // ── FLOOR MAP ─────────────────────────────────────────────────
@@ -723,84 +729,496 @@ async function onSeatClick(seatId, dk) {
 }
 
 // ── ABSENCES ──────────────────────────────────────────────────
+const ABSENCE_TYPES = {
+  wfh:       { label: 'Work From Home',              icon: '🏠', color: '#3b82f6', bg: '#dbeafe', border: '#93c5fd' },
+  abroad:    { label: 'Working Abroad',              icon: '✈️',  color: '#7c3aed', bg: '#ede9fe', border: '#a78bfa' },
+  holiday:   { label: 'Holiday',                     icon: '🏝️',  color: '#d97706', bg: '#fef3c7', border: '#fcd34d' },
+  mission:   { label: 'On Mission',                  icon: '🚄', color: '#dc2626', bg: '#fee2e2', border: '#fca5a5' },
+  institute: { label: 'Working from Another Institute', icon: '🏛️', color: '#0891b2', bg: '#cffafe', border: '#67e8f9' },
+};
+
+let absState = {
+  selectedType:   'wfh',
+  selectedPeriod: 'full',
+  rangeStart:     null,
+  rangeEnd:       null,
+  rangePicking:   false,
+  calYear:        new Date().getFullYear(),
+  calMonth:       new Date().getMonth(),
+  absenceMap:     {},
+  loaded:         false,
+};
+
 async function renderAbsence() {
-  const today = new Date();
-  const todayMidnight = new Date(); todayMidnight.setHours(0,0,0,0);
+  if (!absState.loaded) {
+    const t = new Date();
+    absState.calYear  = t.getFullYear();
+    absState.calMonth = t.getMonth();
+    absState.loaded = true;
+    renderAbsenceUI();
+    await refreshAbsenceMap();   // only fetch from server on first load
+    renderAbsCalendar();
+  } else {
+    renderAbsenceUI();           // return: show existing state, no server round-trip
+  }
+}
 
-  const thisWeek = getWeekDays(today);
-  const nextMonday = new Date(todayMidnight);
-  const dow = nextMonday.getDay() || 7;
-  nextMonday.setDate(nextMonday.getDate() + (8 - dow));
-  const nextWeek = getWeekDays(nextMonday);
-  const allDays = [...thisWeek.filter(d => d >= todayMidnight), ...nextWeek];
+function renderAbsenceUI() {
+  const u = state.currentUser;
+  const showPeriod = absState.selectedType === 'wfh';
+  const period = showPeriod ? absState.selectedPeriod : 'full';
+  const meta = ABSENCE_TYPES[absState.selectedType];
+  const todayStr = dateKey(new Date());
 
-  const ws1 = weekStart(today);
-  const ws2 = weekStart(nextMonday);
-  try {
-    for (const ws of [ws1, ws2]) {
-      if (!state.absencesCache[ws]) {
-        state.absencesCache[ws] = await api.getAbsences(ws);
-      }
-    }
-    const absMap = {};
-    [...(state.absencesCache[ws1]||[]), ...(state.absencesCache[ws2]||[])].forEach(a => {
-      const dk = dateKey(new Date(a.date));
-      if (!absMap[dk]) absMap[dk] = {};
-      absMap[dk][a.period] = true;
-    });
+  el('main-content').innerHTML = `
+    <div class="absence-container">
+      <div class="absence-panel">
+        <div class="absence-panel-title">📅 Mark Your Status</div>
+        <div class="absence-panel-sub">Select a status type, choose dates, then Apply. Click any calendar day to toggle directly.</div>
 
-    const u = state.currentUser;
-    let html = `<div class="week-grid">`;
-    allDays.forEach(day => {
-      const dk      = dateKey(day);
-      const isToday = dateKey(today) === dk;
-      const abs     = absMap[dk] || {};
-      html += `<div class="day-card ${isToday?'today':''}">
-        <div class="day-name">${['Mon','Tue','Wed','Thu','Fri'][day.getDay()-1]}</div>
-        <div class="day-num">${day.getDate()}</div>
-        <div style="font-size:11px;color:var(--text3);margin-bottom:10px">${day.toLocaleDateString('en',{month:'short'})}</div>
-        <div class="time-blocks">
-          ${timeBl('AM', !!abs['AM'], dk)}
-          ${timeBl('PM', !!abs['PM'], dk)}
+        <div class="abs-section-label">Status</div>
+        <div class="absence-type-row">
+          ${Object.keys(ABSENCE_TYPES).map(key => {
+            const t = ABSENCE_TYPES[key];
+            return `<button class="abs-type-btn ${absState.selectedType===key?'active':''}"
+              onclick="selectAbsType('${key}')" style="--acolor:${t.color};--abg:${t.bg};--aborder:${t.border}">${t.icon} ${t.label}</button>`;
+          }).join('')}
         </div>
-      </div>`;
+
+        ${showPeriod ? `
+        <div class="abs-section-label">Period <small style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text3)">(WFH only — splits floor‑map availability)</small></div>
+        <div class="abs-period-row">
+          <button class="abs-period-btn ${period==='full'?'active':''}" onclick="selectAbsPeriod('full')">
+            ⏰ Full Day <span class="abs-period-hint">09:00–18:00</span></button>
+          <button class="abs-period-btn ${period==='AM'?'active':''}" onclick="selectAbsPeriod('AM')">
+            🌅 Morning AM <span class="abs-period-hint">09:00–13:00</span></button>
+          <button class="abs-period-btn ${period==='PM'?'active':''}" onclick="selectAbsPeriod('PM')">
+            🌆 Afternoon PM <span class="abs-period-hint">13:00–18:00</span></button>
+        </div>` : `<p style="font-size:12px;color:var(--text3);margin:0 0 14px">⏰ ${meta.label} is always a full-day status.</p>`}
+
+        <div class="abs-section-label">Date Range <small style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text3)">— weekends are skipped automatically</small></div>
+        <div class="abs-range-row">
+          <div class="abs-range-field">
+            <label>From</label>
+            <input type="date" id="abs-from" value="${absState.rangeStart||''}"
+              min="2026-05-26"
+              onchange="absState.rangeStart=this.value; if(absState.rangeStart < '2026-05-26') absState.rangeStart = '2026-05-26'; if(absState.rangeEnd && absState.rangeEnd < absState.rangeStart) absState.rangeEnd=null; renderAbsenceUI()" />
+          </div>
+          <div class="abs-range-sep">→</div>
+          <div class="abs-range-field">
+            <label>To</label>
+            <input type="date" id="abs-to" value="${absState.rangeEnd||''}"
+              min="${absState.rangeStart||'2026-05-26'}"
+              onchange="absState.rangeEnd=this.value; if(absState.rangeEnd < (absState.rangeStart||'2026-05-26')) absState.rangeEnd = absState.rangeStart||'2026-05-26'; renderAbsenceUI()" />
+          </div>
+          <button class="btn btn-primary abs-apply-btn"
+            onclick="applyAbsenceRange()"
+            ${absState.rangeStart&&absState.rangeEnd?'':'disabled'}>Apply</button>
+          <button class="btn abs-clear-btn"
+            onclick="clearRangeToOffice()"
+            ${absState.rangeStart&&absState.rangeEnd?'':'disabled'}>🏢 In-Office</button>
+        </div>
+        <div style="margin-top:8px">
+          <button class="btn abs-reset-all-btn" onclick="resetAllToOffice()">🏢 Reset All to In-Office</button>
+        </div>
+
+        ${absState.rangeStart && absState.rangeEnd ? `
+        <div class="abs-range-preview">
+          <span style="color:${meta.color}">${meta.icon} ${meta.label}</span>
+          ${showPeriod && period!=='full' ? `· <b>${period==='AM'?'Morning AM':'Afternoon PM'}</b>` : '· Full Day'}
+          · <b>${absState.rangeStart}</b> → <b>${absState.rangeEnd}</b>
+        </div>` : ''}
+      </div>
+
+      <!-- Display calendar -->
+      <div class="abs-calendar-section">
+        <div class="abs-cal-header">
+          <button class="calendar-month-btn" onclick="absCalPrev()">‹</button>
+          <span id="abs-cal-title" class="abs-cal-title"></span>
+          <button class="calendar-month-btn" onclick="absCalNext()">›</button>
+          <button class="calendar-today-btn" onclick="absCalToday()" title="Jump to current month">Today</button>
+        </div>
+        <div class="abs-cal-info">
+          ${meta.icon} Click any weekday to toggle <b>${meta.label}</b>
+          ${showPeriod && period!=='full' ? `(<b>${period==='AM'?'Morning AM':'Afternoon PM'}</b> only)` : '(Full Day)'}
+          · Half-filled cell = half-day WFH
+        </div>
+        <div id="abs-cal-grid"></div>
+      </div>
+
+      <div class="abs-legend">
+        <div class="abs-legend-item"><span class="abs-leg-swatch" style="background:var(--surface2);border-color:var(--border)">🏢</span> In Office</div>
+        <div class="abs-legend-item"><span class="abs-leg-swatch" style="background:#dbeafe;border-color:#93c5fd">🏠</span> WFH Full</div>
+        <div class="abs-legend-item"><span class="abs-leg-swatch abs-leg-swatch-half" style="--top:#dbeafe;--bot:var(--surface2)">🏠</span> WFH AM</div>
+        <div class="abs-legend-item"><span class="abs-leg-swatch abs-leg-swatch-half" style="--top:var(--surface2);--bot:#dbeafe">🏠</span> WFH PM</div>
+        <div class="abs-legend-item"><span class="abs-leg-swatch" style="background:#ede9fe;border-color:#a78bfa">✈️</span> Abroad</div>
+        <div class="abs-legend-item"><span class="abs-leg-swatch" style="background:#fef3c7;border-color:#fcd34d">🏝️</span> Holiday</div>
+      </div>
+
+      <div class="info-banner" style="margin-top:12px">
+        <b>Your desk:</b>
+        ${u.seat ? `Seat <b>${esc(u.seat)}</b> — released on the floor map for WFH / Abroad / Holiday days.` : 'No standard seat assigned.'}
+      </div>
+    </div>`;
+
+  const fromInput = el('abs-from'); if (fromInput) fromInput.min = 2026-05-26;
+  const toInput = el('abs-to'); if (toInput) toInput.min = absState.rangeStart || 2026-05-26;
+  renderAbsCalendar();
+}
+
+function renderAbsCalendar() {
+  const MONTHS = ['January','February','March','April','May','June','July',
+    'August','September','October','November','December'];
+  const year        = absState.calYear;
+  const month       = absState.calMonth;
+  const today       = new Date(); today.setHours(0,0,0,0);
+  const todayDk     = dateKey(today);
+  const firstDow    = new Date(year, month, 1).getDay(); // 0=Sun
+  const startOffset = firstDow === 0 ? 6 : firstDow - 1; // Mon-based
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  const titleEl = el('abs-cal-title');
+  if (titleEl) titleEl.textContent = MONTHS[month] + ' ' + year;
+
+  // ── Pure inline-style layout: NO CSS classes for positioning ──
+  // Each week is a flex row, each cell is a button with fixed width percent.
+  // This guarantees pixel-perfect column alignment across all browsers.
+  const COL_W   = 'width:calc(100%/7);box-sizing:border-box;padding:2px';
+  const HDR_STY = 'text-align:center;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;padding:2px 0 8px';
+  const DAY_STY = 'width:100%;min-height:52px;border-radius:7px;border:1.5px solid;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:5px 2px;box-sizing:border-box;transition:border-color .15s;font-family:inherit;font-size:inherit';
+
+  let html = '<div style="width:100%">';
+
+  // Header row
+  html += '<div style="display:flex;width:100%;margin-bottom:2px">';
+  const hdrs = ['Mo','Tu','We','Th','Fr',
+    '<span style="opacity:.4">Sa</span>',
+    '<span style="opacity:.4">Su</span>'];
+  hdrs.forEach(h => {
+    html += `<div style="${COL_W}"><div style="${HDR_STY}">${h}</div></div>`;
+  });
+  html += '</div>';
+
+  // Day rows — build array of cells first
+  const cells = [];
+  for (let i = 0; i < startOffset; i++) cells.push({ empty: true });
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dt        = new Date(year, month, d);
+    const dk        = dateKey(dt);
+    const dow       = dt.getDay();            // 0=Sun
+    const isWeekend = dow === 0 || dow === 6;
+    const isPast    = dt < today;
+    const isToday   = dk === todayDk;
+    cells.push({ d, dk, isWeekend, isPast, isToday });
+  }
+
+  // Render cells in rows of 7
+  for (let i = 0; i < cells.length; i += 7) {
+    const row = cells.slice(i, i + 7);
+    while (row.length < 7) row.push({ empty: true });
+    html += '<div style="display:flex;width:100%;margin-bottom:4px">';
+    row.forEach(cell => {
+      html += `<div style="${COL_W}">`;
+      if (cell.empty) {
+        html += `<div style="${DAY_STY};border-color:transparent;background:transparent;cursor:default;visibility:hidden"></div>`;
+      } else if (cell.isWeekend) {
+        html += `<div style="${DAY_STY};border-color:var(--border);background:var(--surface2);opacity:.35;cursor:default">
+          <span style="font-size:11px;color:var(--text3)">${cell.d}</span>
+        </div>`;
+      } else if (cell.isPast) {
+        const dayData = absState.absenceMap[cell.dk] || { AM: null, PM: null };
+        const vis = buildDayVisual(dayData.AM, dayData.PM);
+        html += `<div style="${DAY_STY};border-color:${vis.borderColor};background:${vis.bg};opacity:.4;cursor:default">
+          <span style="font-size:10px;color:var(--text3)">${cell.d}</span>
+          <span style="font-size:14px">${vis.icon}</span>
+        </div>`;
+      } else {
+        const dayData = absState.absenceMap[cell.dk] || { AM: null, PM: null };
+        const vis = buildDayVisual(dayData.AM, dayData.PM);
+        const todayRing = cell.isToday ? ';box-shadow:0 0 0 2px var(--accent)' : '';
+        html += `<button
+          style="${DAY_STY};border-color:${vis.borderColor};background:${vis.bg}${todayRing}"
+          onclick="console.log('cal click','${cell.dk}'); toggleDayAbsence('${cell.dk}')"
+          title="${vis.tooltip}"
+          onmouseenter="console.log('cal hover', '${cell.dk}'); this.style.borderColor='var(--accent)'"
+          onmouseleave="this.style.borderColor='${vis.borderColor}'">
+          <span style="font-size:10px;color:var(--text3);margin-bottom:2px">${cell.d}${cell.isToday ? " ●" : ""}</span>
+          <span style="font-size:15px;line-height:1">${vis.icon}</span>
+          ${vis.subLabel ? "<span style=\"font-size:8px;color:var(--text3);margin-top:1px\">" + vis.subLabel + "</span>" : ""}
+        </button>`;
+      }
+      html += '</div>';
     });
-    html += `</div>
-      <div class="info-banner">
-        <b style="color:var(--text)">How it works:</b> Mark AM/PM absence to release your standard desk
-        (${esc(u.seat||'none assigned')}) for others to book. Your desk stays locked when you're in office.
-      </div>`;
+    html += '</div>';
+  }
+
+  html += '</div>';
+  const g = el('abs-cal-grid');
+  if (g) g.innerHTML = html;
+}
+
+function buildDayVisual(am, pm) {
+  // Both null → in office
+  if (!am && !pm) {
+    return { bg:'var(--surface2)', borderColor:'var(--border)', icon:'🏢', tooltip:'In Office', subLabel:'' };
+  }
+  // Both same → full day
+  if (am && am === pm) {
+    const m = ABSENCE_TYPES[am];
+    return { bg:m.bg, borderColor:m.border, icon:m.icon, tooltip:m.label+' · Full Day', subLabel:'' };
+  }
+  // AM only
+  if (am && !pm) {
+    const m = ABSENCE_TYPES[am];
+    return {
+      bg:`linear-gradient(to bottom,${m.bg} 50%,var(--surface2) 50%)`,
+      borderColor:m.border, icon:m.icon,
+      tooltip:`${m.label} AM · In Office PM`, subLabel:'AM'
+    };
+  }
+  // PM only
+  if (!am && pm) {
+    const m = ABSENCE_TYPES[pm];
+    return {
+      bg:`linear-gradient(to bottom,var(--surface2) 50%,${m.bg} 50%)`,
+      borderColor:m.border, icon:m.icon,
+      tooltip:`In Office AM · ${m.label} PM`, subLabel:'PM'
+    };
+  }
+  // Different types AM + PM
+  const mA = ABSENCE_TYPES[am], mP = ABSENCE_TYPES[pm];
+  return {
+    bg:`linear-gradient(to bottom,${mA.bg} 50%,${mP.bg} 50%)`,
+    borderColor:mA.border,
+    icon:mA.icon + mP.icon,
+    tooltip:`${mA.label} AM · ${mP.label} PM`, subLabel:''
+  };
+}
+
+function selectAbsType(type) {
+  absState.selectedType = type;
+  if (type !== 'wfh') absState.selectedPeriod = 'full';
+  renderAbsenceUI();
+}
+function selectAbsPeriod(p) { absState.selectedPeriod = p; renderAbsenceUI(); }
+
+function absCalPrev() {
+  if (absState.calMonth === 0) { absState.calYear--;  absState.calMonth = 11; }
+  else absState.calMonth--;
+  const fromInput = el('abs-from'); if (fromInput) fromInput.min = 2026-05-26;
+  const toInput = el('abs-to'); if (toInput) toInput.min = absState.rangeStart || 2026-05-26;
+  renderAbsCalendar();
+}
+function absCalNext() {
+  if (absState.calMonth === 11) { absState.calYear++; absState.calMonth = 0; }
+  else absState.calMonth++;
+  const fromInput = el('abs-from'); if (fromInput) fromInput.min = 2026-05-26;
+  const toInput = el('abs-to'); if (toInput) toInput.min = absState.rangeStart || 2026-05-26;
+  renderAbsCalendar();
+}
+
+function absCalToday() {
+  const today = new Date();
+  absState.calYear = today.getFullYear();
+  absState.calMonth = today.getMonth();
+  renderAbsCalendar();
+}
+
+async function applyAbsenceRange() {
+  if (!absState.rangeStart || !absState.rangeEnd) return;
+  const from   = absState.rangeStart, to = absState.rangeEnd;
+  const period = absState.selectedType === 'wfh' ? absState.selectedPeriod : 'full';
+  const meta   = ABSENCE_TYPES[absState.selectedType];
+  try {
+    await api.markAbsenceRange(from, to, absState.selectedType, period);
+    const pl = period === 'full' ? 'Full Day' : period === 'AM' ? 'Morning AM' : 'Afternoon PM';
+    showToast(`${meta.icon} ${meta.label} · ${pl} · ${from} → ${to}`);
+    // Jump display calendar to show the start of the applied range
+    const d = new Date(from + 'T00:00:00');
+    absState.calYear  = d.getFullYear();
+    absState.calMonth = d.getMonth();
+    absState.rangeStart = null;
+    absState.rangeEnd   = null;
+    state.seatsCache    = {};
+    await refreshAbsenceMap();
+    renderAbsenceUI();
+  } catch(e) { showToast(e.message, 'error'); }
+}
+
+async function toggleDayAbsence(dk) {
+  if (absState.rangePicking) { pickRangeDay(dk); return; }
+  const d      = absState.absenceMap[dk] || { AM: null, PM: null };
+  const period = absState.selectedType === 'wfh' ? absState.selectedPeriod : 'full';
+  const type   = absState.selectedType;
+
+  // Determine what the new state should be:
+  // - 'full' period: toggle both AM+PM between (type,type) and (null,null)
+  // - 'AM' period:   result is EXACTLY (type, null) or (null, null) — never mixed
+  // - 'PM' period:   result is EXACTLY (null, type) or (null, null) — never mixed
+  let newAM, newPM;
+  if (period === 'full') {
+    const already = d.AM === type && d.PM === type;
+    newAM = already ? null : type;
+    newPM = already ? null : type;
+  } else if (period === 'AM') {
+    // "already set" only if AM=type AND PM is NOT type (pure AM half-day)
+    // Clicking AM on a full-day entry → set AM only (clear PM)
+    const already = d.AM === type && d.PM !== type;
+    newAM = already ? null : type;
+    newPM = null;
+  } else { // PM
+    // "already set" only if PM=type AND AM is NOT type (pure PM half-day)
+    // Clicking PM on a full-day entry → set PM only (clear AM)
+    const already = d.PM === type && d.AM !== type;
+    newAM = null;
+    newPM = already ? null : type;
+  }
+
+  try {
+    // Clear the full day first, then set the specific period(s)
+    await api.clearAbsenceRange(dk, dk, 'full');
+    if (newAM) await api.markAbsenceRange(dk, dk, newAM, 'AM');
+    if (newPM) await api.markAbsenceRange(dk, dk, newPM, 'PM');
+
+    state.seatsCache = {};
+    if (newAM || newPM) {
+      absState.absenceMap[dk] = { AM: newAM, PM: newPM };
+    } else {
+      delete absState.absenceMap[dk];
+    }
+    renderAbsCalendar();
+  } catch(e) { showToast(e.message, 'error'); }
+}
+
+function pickRangeDay(dk) {
+  if (!absState.rangeStart) { absState.rangeStart = dk; absState.rangeEnd = null; }
+  else if (!absState.rangeEnd) {
+    if (absState.rangeStart <= dk) { absState.rangeEnd = dk; } else { absState.rangeEnd = absState.rangeStart; absState.rangeStart = dk; }
+    absState.rangePicking = false;
+  } else {
+    absState.rangeStart = dk; absState.rangeEnd = null;
+  }
+  renderAbsenceUI();
+}
+
+async function clearRangeToOffice() {
+  if (!absState.rangeStart || !absState.rangeEnd) return;
+  const period = absState.selectedType === 'wfh' ? absState.selectedPeriod : 'full';
+  try {
+    await api.clearAbsenceRange(absState.rangeStart, absState.rangeEnd, period);
+    showToast('🏢 Cleared to In-Office');
+    absState.rangeStart = null;
+    absState.rangeEnd   = null;
+    state.seatsCache    = {};
+    await refreshAbsenceMap();
+    renderAbsenceUI();
+  } catch(e) { showToast(e.message, 'error'); }
+}
+async function resetAllToOffice() {
+  if (!confirm('Clear ALL your absences from today onwards and mark you as In-Office?')) return;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const from  = dateKey(today);
+  const to    = new Date(today); to.setDate(to.getDate() + 365);
+  try {
+    await api.clearAbsenceRange(from, dateKey(to), 'full');
+    absState.absenceMap = {};
+    state.seatsCache    = {};
+    showToast('🏢 All absences cleared — you are In-Office');
+    renderAbsCalendar();
+  } catch(e) { showToast(e.message, 'error'); }
+}
+
+async function refreshAbsenceMap() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const from  = dateKey(today);
+  const to    = new Date(today); to.setDate(to.getDate() + 84);
+  const rows  = await api.getAbsencesRange(from, dateKey(to));
+  absState.absenceMap = {};
+  rows.forEach(r => {
+    const dk = r.date.slice(0, 10);
+    if (!absState.absenceMap[dk]) absState.absenceMap[dk] = { AM: null, PM: null };
+    absState.absenceMap[dk][r.period] = r.absence_type;
+  });
+}
+
+// ── TEAM ABSENCES (admin) ─────────────────────────────────────
+async function renderTeamAbsences() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const dow   = today.getDay() || 7;
+  const mon   = new Date(today); mon.setDate(today.getDate() - (dow - 1));
+  if (window.teamAbsWeekOffset === undefined) window.teamAbsWeekOffset = 0;
+  const weekMon = new Date(mon);
+  weekMon.setDate(mon.getDate() + window.teamAbsWeekOffset * 7);
+  const ws = dateKey(weekMon);
+  try {
+    const [rows, users] = await Promise.all([api.teamAbsences(ws), api.adminUsers()]);
+    const userMap = {};
+    users.forEach(u => { userMap[u.id] = { name: u.name, seat: u.seat_id, days: {} }; });
+    rows.forEach(r => {
+      const dk = r.date.slice(0, 10);
+      if (!userMap[r.user_id]) userMap[r.user_id] = { name: r.name, seat: null, days: {} };
+      if (!userMap[r.user_id].days[dk]) userMap[r.user_id].days[dk] = { AM: null, PM: null };
+      userMap[r.user_id].days[dk][r.period] = r.absence_type;
+    });
+    const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const weekDays = [];
+    for (let i = 0; i < 5; i++) {
+      const d = new Date(weekMon); d.setDate(weekMon.getDate() + i);
+      weekDays.push({ dk: dateKey(d), label: ['Mon','Tue','Wed','Thu','Fri'][i], d });
+    }
+    let html = `<div class="team-abs-container">
+      <div class="team-abs-header">
+        <div class="team-abs-nav">
+          <button class="calendar-month-btn" onclick="teamAbsNavWeek(-1)">‹</button>
+          <span class="team-abs-week-label">Week of ${weekMon.getDate()} ${MONTHS[weekMon.getMonth()]} ${weekMon.getFullYear()}</span>
+          <button class="calendar-month-btn" onclick="teamAbsNavWeek(1)">›</button>
+        </div>
+      </div>
+      <div class="team-abs-table-wrap">
+      <table class="team-abs-table">
+        <thead><tr>
+          <th class="team-abs-name-col">Team Member</th>
+          ${weekDays.map(d => `<th class="team-abs-day-col"><div>${d.label}</div><div class="team-abs-day-num">${d.d.getDate()} ${MONTHS[d.d.getMonth()]}</div></th>`).join('')}
+        </tr></thead>
+        <tbody>
+        ${Object.values(userMap).sort((a,b)=>a.name.localeCompare(b.name)).map(u => `
+          <tr>
+            <td class="team-abs-name">
+              <div class="team-abs-avatar">${u.name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase()}</div>
+              <div><div class="team-abs-uname">${esc(u.name)}</div>${u.seat?`<div class="team-abs-seat">Desk ${esc(u.seat)}</div>`:''}</div>
+            </td>
+            ${weekDays.map(d => {
+              const day = u.days[d.dk] || { AM: null, PM: null };
+              const am = day.AM, pm = day.PM;
+              let icon, bg, borderColor, title;
+              if (am === pm) {
+                if (!am) { icon='🏢'; bg='var(--surface2)'; borderColor='var(--border)'; title='In Office'; }
+                else { const m=ABSENCE_TYPES[am]; icon=m.icon; bg=m.bg; borderColor=m.border; title=m.label+' (Full Day)'; }
+              } else {
+                const absType=am||pm; const m=ABSENCE_TYPES[absType]; icon=m.icon; borderColor=m.border;
+                if (am) { bg=`linear-gradient(to bottom,${m.bg} 50%,var(--surface2) 50%)`; title=m.label+' AM · In Office PM'; }
+                else    { bg=`linear-gradient(to bottom,var(--surface2) 50%,${m.bg} 50%)`; title='In Office AM · '+m.label+' PM'; }
+              }
+              return `<td class="team-abs-cell"><div class="team-day-cell" style="background:${bg};border-color:${borderColor}" title="${title}">${icon}</div></td>`;
+            }).join('')}
+          </tr>`).join('')}
+        </tbody>
+      </table></div>
+      <div class="abs-legend" style="margin-top:14px">
+        <div class="abs-legend-item">🏢 In Office</div>
+        <div class="abs-legend-item">🏠 WFH</div>
+        <div class="abs-legend-item">✈️ Abroad</div>
+        <div class="abs-legend-item">🏝️ Holiday</div>
+        <div class="abs-legend-item" style="font-size:11px;color:var(--text3)">Half-filled = half-day WFH</div>
+      </div>
+    </div>`;
     el('main-content').innerHTML = html;
   } catch(err) { showErrorState(err.message); }
 }
 
-function timeBl(period, absent, dk) {
-  return `<div class="time-block ${absent?'absent':''}" onclick="toggleAbsence('${dk}','${period}',this)">
-    <span class="time-label">${period==='AM'?'09:00–13:00':'13:00–18:00'}</span>
-    <span class="time-status">
-      <span class="status-dot" style="background:${absent?'var(--red)':'var(--green)'}"></span>
-      ${absent?'Absent':'In office'}
-    </span>
-  </div>`;
-}
-
-async function toggleAbsence(dk, period, blockEl) {
-  const isAbsent = !!(blockEl && blockEl.classList.contains('absent'));
-  const ws = weekStart(new Date(dk));
-  try {
-    if (isAbsent) {
-      await api.removeAbsence(dk, period);
-      showToast(`✅ Marked in office — ${period} on ${dk}`);
-    } else {
-      await api.markAbsent(dk, period);
-      showToast(`🏠 Marked absent — ${period} on ${dk}`);
-    }
-    delete state.absencesCache[ws];
-    delete state.seatsCache[dk];
-    await renderAbsence();
-  } catch (e) {
-    showToast(e.message, 'error');
-  }
+function teamAbsNavWeek(delta) {
+  window.teamAbsWeekOffset = (window.teamAbsWeekOffset || 0) + delta;
+  renderTeamAbsences();
 }
 
 // ── MY BOOKINGS ───────────────────────────────────────────────

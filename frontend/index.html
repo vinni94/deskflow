@@ -156,6 +156,12 @@ input{font-family:'DM Sans',sans-serif;outline:none}
   transition:all 0.15s;font-size:15px;
 }
 .calendar-month-btn:hover{background:var(--surface3);color:var(--text)}
+.calendar-today-btn{
+  padding:5px 12px;height:28px;background:var(--accent);color:white;border:none;
+  border-radius:var(--r);font-size:12px;font-weight:600;margin-left:10px;
+  transition:all 0.15s;cursor:pointer;
+}
+.calendar-today-btn:hover{opacity:0.9}
 .calendar-weekdays{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:6px}
 .calendar-weekday{text-align:center;font-size:10px;font-weight:600;color:var(--text3);letter-spacing:0.6px;text-transform:uppercase;padding:4px 0}
 .calendar-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
@@ -260,24 +266,38 @@ input{font-family:'DM Sans',sans-serif;outline:none}
 .btn-green:hover{background:rgba(76,175,125,0.22)}
 
 /* ── ABSENCE CALENDAR ───────────────────────────────────────── */
+.absence-container{max-width:800px}
+.absence-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:20px 24px;margin-bottom:20px}
+.absence-panel-title{font-size:15px;font-weight:600;color:var(--text);margin-bottom:4px}
+.absence-panel-sub{font-size:12px;color:var(--text2);margin-bottom:16px}
+.absence-type-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.abs-type-btn{
+  padding:8px 14px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;
+  border:1.5px solid var(--border);background:var(--surface2);color:var(--text);
+  transition:all 0.15s;
+}
+.abs-type-btn:hover{border-color:var(--acolor,#7c6af5);background:var(--abg,var(--surface2));color:var(--acolor,var(--text))}
+.abs-type-btn.active{border-color:var(--acolor);background:var(--abg);color:var(--acolor);font-weight:600}
+.abs-range-row{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap}
+.abs-range-field{display:flex;flex-direction:column;gap:4px}
+.abs-range-field label{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px}
+.abs-range-field input[type=date]{padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface2);color:var(--text);font-size:13px;outline:none}
+.abs-range-field input[type=date]:focus{border-color:var(--accent)}
+.abs-range-sep{font-size:18px;color:var(--text3);padding-bottom:6px}
+.abs-apply-btn{height:36px;padding:0 18px;margin-bottom:0}
+.abs-apply-btn:disabled{opacity:0.45;cursor:not-allowed}
+.abs-clear-btn{height:36px;padding:0 14px;margin-bottom:0;border:1.5px solid #86efac;background:#dcfce7;color:#16a34a;border-radius:var(--r);cursor:pointer;font-size:13px}
+.abs-clear-btn:disabled{opacity:.4;cursor:not-allowed}
+.abs-reset-all-btn{height:34px;padding:0 16px;border:1.5px solid #fca5a5;background:#fee2e2;color:#dc2626;border-radius:var(--r);cursor:pointer;font-size:13px;font-weight:500}
+.abs-range-preview{margin-top:10px;font-size:12px;color:var(--text2);background:var(--surface2);border-radius:6px;padding:8px 12px;border:1px dashed var(--border2)}
+.abs-calendar-section{background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:20px}
+.abs-cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.abs-cal-title{font-size:15px;font-weight:600;color:var(--text)}
 .week-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:24px}
 .day-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:16px}
 .day-card.today{border-color:rgba(124,106,245,0.5);background:var(--accent-bg)}
 .day-name{font-size:11px;font-weight:600;color:var(--text3);letter-spacing:0.8px;text-transform:uppercase;margin-bottom:2px}
 .day-num{font-size:22px;font-weight:600;letter-spacing:-0.5px;margin-bottom:2px}
-.time-blocks{display:flex;flex-direction:column;gap:6px}
-.time-block{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:8px 10px;background:var(--surface2);border-radius:8px;font-size:12px;
-  border:1px solid var(--border);cursor:pointer;transition:all 0.15s;
-}
-.time-block:hover{border-color:var(--border2)}
-.time-block.absent{background:var(--red-bg);border-color:rgba(240,92,92,0.3);color:var(--red)}
-.time-block.absent .time-label{color:var(--red)}
-.time-label{font-size:11px;color:var(--text2);font-family:'DM Mono',monospace}
-.time-status{display:flex;align-items:center;gap:5px;font-weight:500}
-.status-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
-
 /* ── MY BOOKINGS ────────────────────────────────────────────── */
 .bookings-list{display:flex;flex-direction:column;gap:10px}
 .booking-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:16px 18px;display:flex;align-items:center;justify-content:space-between}
@@ -317,6 +337,70 @@ input{font-family:'DM Sans',sans-serif;outline:none}
   animation:toastIn 0.25s ease;
 }
 @keyframes toastIn{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+
+
+/* ── Absence UI ── */
+.abs-section-label{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:6px;margin-top:14px}
+/* Period buttons */
+.abs-period-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.abs-period-btn{display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:20px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text2);font-size:13px;cursor:pointer;transition:all .15s}
+.abs-period-btn:hover{border-color:var(--accent);color:var(--accent)}
+.abs-period-btn.active{background:var(--accent-bg);border-color:var(--accent);color:var(--accent);font-weight:600}
+.abs-period-hint{font-size:11px;color:var(--text3);margin-left:2px}
+/* Date range inputs */
+.abs-range-row{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.abs-range-field{display:flex;flex-direction:column;gap:4px}
+.abs-range-field label{font-size:11px;color:var(--text3);font-weight:600}
+.abs-range-field input[type=date]{padding:7px 10px;border-radius:var(--r);border:1.5px solid var(--border);background:var(--surface2);color:var(--text);font-size:13px;cursor:pointer}
+.abs-range-field input[type=date]:focus{outline:none;border-color:var(--accent)}
+.abs-range-sep{font-size:18px;color:var(--text3);padding-bottom:6px}
+.abs-apply-btn{padding:7px 20px}
+.abs-range-preview{padding:8px 12px;background:var(--surface2);border-radius:var(--r);font-size:13px;color:var(--text2);border:1px solid var(--border);margin-bottom:4px}
+/* Calendar section */
+.abs-calendar-section{background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:16px 20px;margin-bottom:12px}
+.abs-cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.abs-cal-title{font-weight:600;font-size:15px;color:var(--text)}
+.abs-cal-info{font-size:12px;color:var(--text3);margin-bottom:10px}
+/* Calendar grid */
+.abs-cal-table{width:100%;border-collapse:collapse;table-layout:fixed}
+.abs-cal-table th{text-align:center;font-size:11px;font-weight:600;color:var(--text3);padding:2px 0 8px;text-transform:uppercase}
+.abs-cal-table td{padding:3px;vertical-align:top;width:calc(100%/7)}
+.abs-cal-day{border-radius:7px;border:1.5px solid var(--border);background:var(--surface2);cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:5px 2px 6px;min-height:52px;transition:transform .1s,box-shadow .1s;box-sizing:border-box;overflow:hidden;width:100%}
+.abs-cal-day:hover:not(.past):not(.weekend):not(.empty){transform:scale(1.05);box-shadow:0 2px 8px rgba(0,0,0,.12);border-color:var(--accent)}
+.abs-cal-day.today{box-shadow:0 0 0 2px var(--accent)!important;border-color:var(--accent)}
+.abs-cal-day.past{opacity:.4;cursor:default;pointer-events:none}
+.abs-cal-day.weekend{opacity:.35;cursor:default;pointer-events:none}
+.abs-cal-day.empty{border:none;background:none;cursor:default;pointer-events:none;visibility:hidden}
+.abs-day-halves{display:flex;flex-direction:column;width:100%;align-items:center;gap:1px}
+.abs-day-num{font-size:11px;font-weight:600;color:inherit;margin-bottom:2px;display:flex;align-items:center;gap:2px}
+.abs-today-dot{width:4px;height:4px;border-radius:50%;background:var(--accent);display:inline-block}
+.abs-day-icon{font-size:16px;line-height:1}
+/* Legend */
+.abs-legend{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px}
+.abs-legend-item{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--text2)}
+.abs-leg-swatch{display:inline-flex;align-items:center;justify-content:center;width:26px;height:22px;border-radius:4px;border:1.5px solid;font-size:12px}
+.abs-leg-swatch-half{background:linear-gradient(to bottom, var(--top) 50%, var(--bot) 50%)!important}
+/* Team absences */
+.team-abs-container{max-width:900px}
+.team-abs-header{margin-bottom:14px}
+.team-abs-nav{display:flex;align-items:center;gap:16px}
+.team-abs-week-label{font-size:15px;font-weight:600;color:var(--text);flex:1;text-align:center}
+.team-abs-table-wrap{overflow-x:auto;border-radius:var(--r2);border:1px solid var(--border)}
+.team-abs-table{width:100%;border-collapse:collapse;background:var(--surface)}
+.team-abs-table thead{background:var(--surface2)}
+.team-abs-table th{padding:10px 8px;font-size:12px;font-weight:600;color:var(--text2);text-align:center;border-bottom:1px solid var(--border)}
+.team-abs-name-col{text-align:left!important;min-width:160px;padding-left:16px!important}
+.team-abs-day-col{min-width:80px}
+.team-abs-day-num{font-size:11px;color:var(--text3);font-weight:400;margin-top:2px}
+.team-abs-table tbody tr{border-bottom:1px solid var(--border)}
+.team-abs-table tbody tr:last-child{border-bottom:none}
+.team-abs-name{padding:10px 8px 10px 16px;display:flex;align-items:center;gap:10px}
+.team-abs-avatar{width:32px;height:32px;border-radius:50%;background:var(--accent-bg);color:var(--accent);font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.team-abs-uname{font-size:13px;font-weight:500;color:var(--text)}
+.team-abs-seat{font-size:11px;color:var(--text3)}
+.team-abs-cell{padding:6px 4px;text-align:center;vertical-align:middle}
+.team-day-cell{width:52px;height:38px;border-radius:6px;border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:17px;margin:0 auto}
+
 </style>
 </head>
 <body>
@@ -350,6 +434,7 @@ input{font-family:'DM Sans',sans-serif;outline:none}
     <div class="nav-section" id="admin-nav" style="display:none">
       <div class="nav-section-title">Admin</div>
       <div class="nav-item" data-view="admin" onclick="setView('admin')"><span class="nav-icon">⚙️</span> Dashboard</div>
+      <div class="nav-item" data-view="team-absence" onclick="setView('team-absence')"><span class="nav-icon">👥</span> Team Absences</div>
     </div>
 
     <div class="sidebar-bottom">
@@ -395,6 +480,6 @@ input{font-family:'DM Sans',sans-serif;outline:none}
 <div id="toast-area"></div>
 
 <script src="js/api.js"></script>
-<script src="js/app.js"></script>
+<script src="js/app.js?v=1779823572"></script>
 </body>
 </html>

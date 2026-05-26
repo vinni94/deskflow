@@ -1,0 +1,18 @@
+                             Table "public.absences"
+   Column   |           Type           | Collation | Nullable |      Default      
+------------+--------------------------+-----------+----------+-------------------
+ id         | uuid                     |           | not null | gen_random_uuid()
+ user_id    | uuid                     |           | not null | 
+ date       | date                     |           | not null | 
+ period     | text                     |           | not null | 
+ created_at | timestamp with time zone |           | not null | now()
+Indexes:
+    "absences_pkey" PRIMARY KEY, btree (id)
+    "absences_user_id_date_period_key" UNIQUE CONSTRAINT, btree (user_id, date, period)
+    "idx_absences_date" btree (date)
+    "idx_absences_user_date" btree (user_id, date)
+Check constraints:
+    "absences_period_check" CHECK (period = ANY (ARRAY['AM'::text, 'PM'::text]))
+Foreign-key constraints:
+    "absences_user_id_fkey" FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+
