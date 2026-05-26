@@ -58,6 +58,14 @@ const api = {
   adminUsers:     ()                            => apiFetch('/admin/users'),
   adminStats:     (date)                        => apiFetch(`/admin/stats?date=${date}`),
   teamAbsences:   (weekStart)                   => apiFetch(`/absences/team?weekStart=${weekStart}`),
+  adminGetUsers: () => apiFetch('/admin/users'),
+  adminAssignSeat: (seatId, userId) => apiFetch('/admin/seats/' + seatId + '/assign', {
+    method: 'PUT',
+    body: { userId }
+  }),
+  adminUnassignSeat: (seatId) => apiFetch('/admin/seats/' + seatId + '/unassign', {
+    method: 'DELETE'
+  }),
 };
 
 window.api = api;

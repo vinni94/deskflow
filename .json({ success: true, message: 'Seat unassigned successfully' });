@@ -1,0 +1,21 @@
+                             Table "public.bookings"
+   Column   |           Type           | Collation | Nullable |      Default      
+------------+--------------------------+-----------+----------+-------------------
+ id         | uuid                     |           | not null | gen_random_uuid()
+ seat_id    | text                     |           | not null | 
+ user_id    | uuid                     |           | not null | 
+ date       | date                     |           | not null | 
+ period     | text                     |           | not null | 'full'::text
+ created_at | timestamp with time zone |           | not null | now()
+Indexes:
+    "bookings_pkey" PRIMARY KEY, btree (id)
+    "bookings_seat_id_date_period_key" UNIQUE CONSTRAINT, btree (seat_id, date, period)
+    "idx_bookings_date" btree (date)
+    "idx_bookings_seat_date_period" UNIQUE, btree (seat_id, date, period)
+    "idx_bookings_user_date" btree (user_id, date)
+Check constraints:
+    "bookings_period_check" CHECK (period = ANY (ARRAY['AM'::text, 'PM'::text, 'full'::text]))
+Foreign-key constraints:
+    "bookings_seat_id_fkey" FOREIGN KEY (seat_id) REFERENCES seats(id) ON DELETE CASCADE
+    "bookings_user_id_fkey" FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+

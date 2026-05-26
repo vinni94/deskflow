@@ -1378,6 +1378,105 @@ async function cancelMyBooking(bookingId) {
 
 // ── ADMIN ─────────────────────────────────────────────────────
 async function renderAdmin() {
+
+// ── USER MANAGEMENT (ADMIN) ──────────────────────────────────
+const userMgmtState = { users: [], seats: [] };
+
+async function renderUserManagement() {
+  try {
+    const [users, seats] = await Promise.all([api.adminGetUsers(), api.getSeats(dateKey(new Date()))]);
+    userMgmtState.users = users;
+    userMgmtState.seats = seats;
+    
+    const usersWithSeats = users.filter(u => u.seat_id);
+    const usersWithoutSeats = users.filter(u => !u.seat_id);
+    const availableStdSeats = seats.filter(s => s.type === 'std' && !s.owner_id);
+    
+    let html = '<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);overflow:hidden;margin-bottom:20px">';
+    html += '<div style="padding:16px 20px;border-bottom:1px solid var(--border);font-size:14px;font-weight:600">👤 User Seat Management</div>';
+    html += '<div style="padding:20px">';
+    
+    // Assign seat form
+    if (usersWithoutSeats.length > 0 && availableStdSeats.length > 0) {
+      html += '<div style="display:flex;gap:12px;margin-bottom:20px;align-items:flex-end">';
+      html += '<div style="flex:1"><label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">User</label>';
+      html += '<select id="assign-user-select" size="5" style="height:auto;max-height:150px;overflow-y:auto;width:100%;padding:8px 12px;background:var(--surface3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px">';
+      html += '<option value="">Select user...</option>';
+      usersWithoutSeats.forEach(u => html += `<option value="${u.id}">${esc(u.name)} (${esc(u.email)})</option>`);
+      html += '</select></div>';
+      html += '<div style="flex:1"><label style="display:block;font-size:12px;color:var(--text3);margin-bottom:4px">Standard Seat</label>';
+      html += '<select id="assign-seat-select" size="5" style="height:auto;max-height:150px;overflow-y:auto;width:100%;padding:8px 12px;background:var(--surface3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px">';
+      html += '<option value="">Select seat...</option>';
+      availableStdSeats.forEach(s => html += `<option value="${s.id}">${s.id} - ${s.zone}</option>`);
+      html += '</select></div>';
+      html += '<button class="btn btn-primary" onclick="assignSeatToUser()" style="padding:8px 20px">Assign</button>';
+      html += '</div>';
+    }
+    
+    // Users with assigned seats
+    html += '<h4 style="margin:0 0 12px;font-size:13px;font-weight:600;color:var(--text2)">Users with Assigned Seats (' + usersWithSeats.length + ')</h4>';
+    if (usersWithSeats.length === 0) {
+      html += '<p style="color:var(--text3);font-size:13px;margin:0 0 20px">No users have assigned seats.</p>';
+    } else {
+      html += '<div style="max-height:400px;overflow-y:auto;margin-bottom:20px"><table class="users-table" style="margin-bottom:0"><thead><tr><th>Name</th><th>Email</th><th>Seat</th><th>Action</th></tr></thead><tbody>';
+      usersWithSeats.forEach(u => {
+        html += '<tr>';
+        html += `<td style="font-weight:500">${esc(u.name)}</td>`;
+        html += `<td style="color:var(--text2);font-size:12px">${esc(u.email)}</td>`;
+        html += `<td><span class="badge badge-std">${u.seat_id}</span></td>`;
+        html += `<td><button class="btn btn-ghost" style="font-size:11px;padding:4px 8px" onclick="unassignSeat('${u.seat_id}')">Remove</button></td>`;
+        html += '</tr>';
+      });
+      html += '</tbody></table></div>';
+    }
+    
+    // Users without seats
+    html += '<h4 style="margin:0 0 12px;font-size:13px;font-weight:600;color:var(--text2)">Users without Assigned Seats (' + usersWithoutSeats.length + ')</h4>';
+    if (usersWithoutSeats.length === 0) {
+      html += '<p style="color:var(--text3);font-size:13px;margin:0">All users have assigned seats.</p>';
+    } else {
+      usersWithoutSeats.forEach(u => {
+        html += `<div style="padding:10px;background:var(--surface3);border-radius:6px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">`;
+        html += `<div><div style="font-weight:500;font-size:13px">${esc(u.name)}</div><div style="font-size:12px;color:var(--text3)">${esc(u.email)}</div></div>`;
+        html += `<span class="badge ${u.role === 'admin' ? 'badge-std' : 'badge-flexi'}">${u.role}</span>`;
+        html += '</div>';
+      });
+    }
+    
+    html += '</div></div>';
+    return html;
+  } catch (err) {
+    console.error('Error rendering user management:', err);
+    return '<div style="color:var(--error);padding:20px">Error loading user management</div>';
+  }
+}
+
+window.assignSeatToUser = async function() {
+  const userId = el('assign-user-select').value;
+  console.log("assignSeatToUser called");
+  const seatId = el('assign-seat-select').value;
+  if (!userId || !seatId) { showToast('Please select both user and seat', 'error'); return; }
+  try {
+  console.log("Selected:", userId, seatId);
+    await api.adminAssignSeat(seatId, userId);
+    showToast('Seat assigned successfully');
+    renderAdmin();
+  } catch (err) {
+    showToast(err.message || 'Failed to assign seat', 'error');
+  }
+}
+
+window.unassignSeat = async function(seatId) {
+  if (!confirm('Remove this seat assignment?')) return;
+  try {
+    await api.adminUnassignSeat(seatId);
+    showToast('Seat unassigned successfully');
+    renderAdmin();
+  } catch (err) {
+    showToast(err.message || 'Failed to unassign seat', 'error');
+  }
+}
+
   const dk = dateKey(state.selectedDate);
   try {
     const [stats, users] = await Promise.all([api.adminStats(dk), api.adminUsers()]);
@@ -1393,7 +1492,7 @@ async function renderAdmin() {
       </div>
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);overflow:hidden">
         <div style="padding:16px 20px;border-bottom:1px solid var(--border);font-size:14px;font-weight:600">Team Members</div>
-        <table class="users-table">
+        <div style="max-height:400px;overflow-y:auto"><table class="users-table">
           <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Desk</th></tr></thead>
           <tbody>`;
     users.forEach(u => {
@@ -1404,8 +1503,9 @@ async function renderAdmin() {
         <td style="font-family:monospace;font-size:12px">${u.seat_id||'—'}</td>
       </tr>`;
     });
-    html += `</tbody></table></div>`;
-    el('main-content').innerHTML = html;
+    html += `</tbody></table></div></div>`;
+    const userMgmtHtml = await renderUserManagement();
+    el('main-content').innerHTML = userMgmtHtml + html;
   } catch(err) { showErrorState(err.message); }
 }
 
