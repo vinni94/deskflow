@@ -63,6 +63,7 @@ app.use('/api/seats',    require('./routes/seats'));
 app.use('/api/bookings', require('./routes/bookings'));
 app.use('/api/absences', require('./routes/absences'));
 app.use('/api/admin',    require('./routes/admin'));
+app.use('/api/users',    require('./routes/users'));
 
 // ── SERVE FRONTEND (production) ─────────────────────────────
 // Place your built frontend in ../frontend or adjust the path.

@@ -204,7 +204,7 @@ function logout() {
 function setView(v) {
   state.view = v;
   document.querySelectorAll('.nav-item').forEach(e => e.classList.toggle('active', e.dataset.view === v));
-  const titles = { map:'Floor Map', absence:'My Absences', bookings:'My Bookings', admin:'Admin Dashboard', 'team-absence':'Team Absences' };
+  const titles = { map:'Floor Map', absence:'My Absences', bookings:'My Bookings', 'team-calendar':'Team Calendar', admin:'Admin Dashboard', 'team-absence':'Team Absences' };
   el('topbar-title').textContent = titles[v] || v;
   const showDateNav = v === 'map' || v === 'absence';
   el('date-nav').style.display = showDateNav ? 'flex' : 'none';
@@ -327,6 +327,7 @@ function renderView() {
   else if (state.view === 'bookings') renderBookings();
   else if (state.view === 'admin')    renderAdmin();
   else if (state.view === 'team-absence') renderTeamAbsences();
+  else if (state.view === 'team-calendar') renderTeamCalendar();
 }
 
 // ── FLOOR MAP ─────────────────────────────────────────────────
@@ -1461,3 +1462,251 @@ async function init() {
 }
 
 init();
+
+// ── TEAM CALENDAR (user search & view) ───────────────────────
+let teamCalState = {
+  selectedUser: null,
+  calYear: new Date().getFullYear(),
+  calMonth: new Date().getMonth(),
+  absenceMap: {},
+  searchTimeout: null,
+};
+
+async function renderTeamCalendar() {
+  el('main-content').innerHTML = `
+    <div class="team-cal-search-container">
+      <div class="team-cal-search-box">
+        <span class="team-cal-search-icon">🔍</span>
+        <input type="text" class="team-cal-search-input" id="team-cal-search"
+          placeholder="Search for a team member by name or email..." autocomplete="off"
+          oninput="handleTeamCalSearch(this.value)" onfocus="handleTeamCalFocus()" />
+        <div class="team-cal-suggestions" id="team-cal-suggestions"></div>
+      </div>
+
+      <div id="team-cal-user-section"></div>
+    </div>`;
+
+  if (teamCalState.selectedUser) {
+    showSelectedUserCalendar();
+  } else {
+    showTeamCalPlaceholder();
+  }
+}
+
+function showTeamCalPlaceholder() {
+  el('team-cal-user-section').innerHTML = `
+    <div class="team-cal-placeholder">
+      <div class="team-cal-placeholder-icon">👥</div>
+      <div class="team-cal-placeholder-text">Search and select a team member to view their availability calendar</div>
+    </div>`;
+}
+
+async function handleTeamCalSearch(query) {
+  clearTimeout(teamCalState.searchTimeout);
+  const suggestionsEl = el('team-cal-suggestions');
+
+  if (!query || query.trim().length < 2) {
+    suggestionsEl.classList.remove('visible');
+    return;
+  }
+
+  teamCalState.searchTimeout = setTimeout(async () => {
+    try {
+      const users = await api.searchUsers(query.trim());
+      if (users.length === 0) {
+        suggestionsEl.innerHTML = '<div style="padding:12px 16px;color:var(--text3);font-size:13px">No users found</div>';
+      } else {
+        suggestionsEl.innerHTML = users.map(u => {
+          const initials = u.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+          return `<div class="team-cal-suggestion-item" onclick="selectTeamCalUser('${u.id}', '${esc(u.name)}', '${esc(u.email)}', '${esc(u.seat_id||'')}')">
+            <div class="team-cal-sugg-avatar">${initials}</div>
+            <div class="team-cal-sugg-info">
+              <div class="team-cal-sugg-name">${esc(u.name)}</div>
+              <div class="team-cal-sugg-email">${esc(u.email)}</div>
+            </div>
+          </div>`;
+        }).join('');
+      }
+      suggestionsEl.classList.add('visible');
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }, 300);
+}
+
+function handleTeamCalFocus() {
+  const input = el('team-cal-search');
+  if (input && input.value.trim().length >= 2) {
+    handleTeamCalSearch(input.value);
+  }
+}
+
+async function selectTeamCalUser(userId, name, email, seatId) {
+  teamCalState.selectedUser = { id: userId, name, email, seat_id: seatId };
+  teamCalState.calYear = new Date().getFullYear();
+  teamCalState.calMonth = new Date().getMonth();
+  teamCalState.absenceMap = {};
+
+  el('team-cal-suggestions').classList.remove('visible');
+  el('team-cal-search').value = '';
+
+  await showSelectedUserCalendar();
+}
+
+async function showSelectedUserCalendar() {
+  const u = teamCalState.selectedUser;
+  const initials = u.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+
+  el('team-cal-user-section').innerHTML = `
+    <div class="team-cal-selected-user">
+      <div class="team-cal-sel-avatar">${initials}</div>
+      <div class="team-cal-sel-info">
+        <div class="team-cal-sel-name">${esc(u.name)}</div>
+        <div class="team-cal-sel-email">${esc(u.email)}${u.seat_id ? ` · Desk ${esc(u.seat_id)}` : ''}</div>
+      </div>
+      <button class="team-cal-close-btn" onclick="clearTeamCalSelection()">✕ Clear</button>
+    </div>
+
+    <div class="team-cal-calendar-wrapper">
+      <div class="team-cal-nav">
+        <button class="calendar-month-btn" onclick="teamCalNavMonth(-1)">‹</button>
+        <span id="team-cal-month-label" class="team-cal-month-label"></span>
+        <button class="calendar-month-btn" onclick="teamCalNavMonth(1)">›</button>
+        <button class="calendar-today-btn" onclick="teamCalToday()" title="Jump to current month">Today</button>
+      </div>
+      <div id="team-cal-grid"></div>
+      <div class="abs-legend" style="margin-top:14px">
+        <div class="abs-legend-item"><span class="abs-leg-swatch" style="background:var(--surface2);border-color:var(--border)">🏢</span> In Office</div>
+        <div class="abs-legend-item"><span class="abs-leg-swatch" style="background:#dbeafe;border-color:#93c5fd">🏠</span> WFH Full</div>
+        <div class="abs-legend-item"><span class="abs-leg-swatch abs-leg-swatch-half" style="--top:#dbeafe;--bot:var(--surface2)">🏠</span> WFH AM</div>
+        <div class="abs-legend-item"><span class="abs-leg-swatch abs-leg-swatch-half" style="--top:var(--surface2);--bot:#dbeafe">🏠</span> WFH PM</div>
+        <div class="abs-legend-item"><span class="abs-leg-swatch" style="background:#ede9fe;border-color:#a78bfa">✈️</span> Abroad</div>
+        <div class="abs-legend-item"><span class="abs-leg-swatch" style="background:#fef3c7;border-color:#fcd34d">🏝️</span> Holiday</div>
+      </div>
+    </div>`;
+
+  await loadTeamCalAbsences();
+  renderTeamCalendarGrid();
+}
+
+async function loadTeamCalAbsences() {
+  const year = teamCalState.calYear;
+  const month = teamCalState.calMonth;
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const dateFrom = dateKey(firstDay);
+  const dateTo = dateKey(lastDay);
+
+  try {
+    const rows = await api.getUserAbsences(teamCalState.selectedUser.id, dateFrom, dateTo);
+    teamCalState.absenceMap = {};
+    rows.forEach(r => {
+      const dk = r.date.slice(0, 10);
+      if (!teamCalState.absenceMap[dk]) teamCalState.absenceMap[dk] = { AM: null, PM: null };
+      teamCalState.absenceMap[dk][r.period] = r.absence_type;
+    });
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+function renderTeamCalendarGrid() {
+  const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const year = teamCalState.calYear;
+  const month = teamCalState.calMonth;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const todayDk = dateKey(today);
+  const firstDow = new Date(year, month, 1).getDay();
+  const startOffset = firstDow === 0 ? 6 : firstDow - 1;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  el('team-cal-month-label').textContent = MONTHS[month] + ' ' + year;
+
+  const COL_W = 'width:calc(100%/7);box-sizing:border-box;padding:2px';
+  const HDR_STY = 'text-align:center;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;padding:2px 0 8px';
+  const DAY_STY = 'width:100%;min-height:52px;border-radius:7px;border:1.5px solid;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:5px 2px;box-sizing:border-box;font-family:inherit;font-size:inherit';
+
+  let html = '<div style="width:100%">';
+
+  html += '<div style="display:flex;width:100%;margin-bottom:2px">';
+  const hdrs = ['Mo','Tu','We','Th','Fr','<span style="opacity:.4">Sa</span>','<span style="opacity:.4">Su</span>'];
+  hdrs.forEach(h => html += `<div style="${COL_W}"><div style="${HDR_STY}">${h}</div></div>`);
+  html += '</div>';
+
+  const cells = [];
+  for (let i = 0; i < startOffset; i++) cells.push({ empty: true });
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dt = new Date(year, month, d);
+    const dk = dateKey(dt);
+    const dow = dt.getDay();
+    const isWeekend = dow === 0 || dow === 6;
+    const isPast = dt < today;
+    const isToday = dk === todayDk;
+    cells.push({ d, dk, isWeekend, isPast, isToday });
+  }
+
+  for (let i = 0; i < cells.length; i += 7) {
+    const row = cells.slice(i, i + 7);
+    while (row.length < 7) row.push({ empty: true });
+    html += '<div style="display:flex;width:100%;margin-bottom:4px">';
+    row.forEach(cell => {
+      html += `<div style="${COL_W}">`;
+      if (cell.empty) {
+        html += `<div style="${DAY_STY};border-color:transparent;background:transparent;visibility:hidden"></div>`;
+      } else if (cell.isWeekend) {
+        html += `<div style="${DAY_STY};border-color:var(--border);background:var(--surface2);opacity:.35">
+          <span style="font-size:11px;color:var(--text3)">${cell.d}</span>
+        </div>`;
+      } else {
+        const dayData = teamCalState.absenceMap[cell.dk] || { AM: null, PM: null };
+        const vis = buildDayVisual(dayData.AM, dayData.PM);
+        const opac = cell.isPast ? 'opacity:.5;' : '';
+        const todayRing = cell.isToday ? ';box-shadow:0 0 0 2px var(--accent)' : '';
+        html += `<div style="${DAY_STY};border-color:${vis.borderColor};background:${vis.bg};${opac}${todayRing}" title="${vis.tooltip}">
+          <span style="font-size:10px;color:var(--text3);margin-bottom:2px">${cell.d}${cell.isToday ? " ●" : ""}</span>
+          <span style="font-size:15px;line-height:1">${vis.icon}</span>
+          ${vis.subLabel ? `<span style="font-size:8px;color:var(--text3);margin-top:1px">${vis.subLabel}</span>` : ''}
+        </div>`;
+      }
+      html += '</div>';
+    });
+    html += '</div>';
+  }
+
+  html += '</div>';
+  el('team-cal-grid').innerHTML = html;
+}
+
+function clearTeamCalSelection() {
+  teamCalState.selectedUser = null;
+  teamCalState.absenceMap = {};
+  renderTeamCalendar();
+}
+
+async function teamCalNavMonth(delta) {
+  if (delta > 0) {
+    if (teamCalState.calMonth === 11) { teamCalState.calYear++; teamCalState.calMonth = 0; }
+    else teamCalState.calMonth++;
+  } else {
+    if (teamCalState.calMonth === 0) { teamCalState.calYear--; teamCalState.calMonth = 11; }
+    else teamCalState.calMonth--;
+  }
+  await loadTeamCalAbsences();
+  renderTeamCalendarGrid();
+}
+
+function teamCalToday() {
+  const today = new Date();
+  teamCalState.calYear = today.getFullYear();
+  teamCalState.calMonth = today.getMonth();
+  loadTeamCalAbsences().then(() => renderTeamCalendarGrid());
+}
+
+// Close suggestions when clicking outside
+document.addEventListener('click', e => {
+  const suggestionsEl = el('team-cal-suggestions');
+  const searchInput = el('team-cal-search');
+  if (suggestionsEl && searchInput && !suggestionsEl.contains(e.target) && e.target !== searchInput) {
+    suggestionsEl.classList.remove('visible');
+  }
+});

@@ -49,6 +49,11 @@ const api = {
   clearAbsenceRange: (dateFrom, dateTo, period)  =>
     apiFetch('/absences', { method:'DELETE', body:{dateFrom, dateTo, period: period||'full'} }),
 
+  // Users
+  searchUsers:    (q)                              => apiFetch('/users/search' + (q ? '?q=' + encodeURIComponent(q) : '')),
+  getUser:        (userId)                         => apiFetch(`/users/${userId}`),
+  getUserAbsences:(userId, dateFrom, dateTo)       => apiFetch(`/absences/user/${userId}?dateFrom=${dateFrom}&dateTo=${dateTo}`),
+
   // Admin
   adminUsers:     ()                            => apiFetch('/admin/users'),
   adminStats:     (date)                        => apiFetch(`/admin/stats?date=${date}`),

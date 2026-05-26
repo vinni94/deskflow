@@ -429,6 +429,7 @@ input{font-family:'DM Sans',sans-serif;outline:none}
       <div class="nav-item active" data-view="map"      onclick="setView('map')">      <span class="nav-icon">🗺️</span> Floor Map</div>
       <div class="nav-item"        data-view="absence"  onclick="setView('absence')">  <span class="nav-icon">📅</span> My Absences</div>
       <div class="nav-item"        data-view="bookings" onclick="setView('bookings')"> <span class="nav-icon">🎫</span> My Bookings</div>
+      <div class="nav-item"        data-view="team-calendar" onclick="setView('team-calendar')"><span class="nav-icon"> 👥</span> Team Calendar</div>
     </div>
 
     <div class="nav-section" id="admin-nav" style="display:none">
@@ -483,3 +484,35 @@ input{font-family:'DM Sans',sans-serif;outline:none}
 <script src="js/app.js?v=1779823572"></script>
 </body>
 </html>
+
+<!-- Team Calendar Styles -->
+<style>
+.team-cal-search-container{max-width:900px}
+.team-cal-search-box{position:relative;margin-bottom:24px}
+.team-cal-search-input{width:100%;padding:14px 50px 14px 18px;border:1.5px solid var(--border);border-radius:var(--r2);background:var(--surface);color:var(--text);font-size:15px;outline:none;transition:border-color .15s}
+.team-cal-search-input:focus{border-color:var(--accent)}
+.team-cal-search-input::placeholder{color:var(--text3)}
+.team-cal-search-icon{position:absolute;right:18px;top:50%;transform:translateY(-50%);font-size:18px;color:var(--text3);pointer-events:none}
+.team-cal-suggestions{position:absolute;top:calc(100% + 6px);left:0;right:0;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r2);box-shadow:0 4px 16px rgba(0,0,0,.2);max-height:300px;overflow-y:auto;z-index:100;display:none}
+.team-cal-suggestions.visible{display:block}
+.team-cal-suggestion-item{padding:12px 16px;cursor:pointer;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--border)}
+.team-cal-suggestion-item:last-child{border-bottom:none}
+.team-cal-suggestion-item:hover{background:var(--surface2)}
+.team-cal-sugg-avatar{width:36px;height:36px;border-radius:50%;background:var(--accent-bg);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:14px;flex-shrink:0}
+.team-cal-sugg-info{flex:1;min-width:0}
+.team-cal-sugg-name{font-size:14px;font-weight:500;color:var(--text)}
+.team-cal-sugg-email{font-size:12px;color:var(--text3);margin-top:2px}
+.team-cal-selected-user{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r2);padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;gap:14px}
+.team-cal-sel-avatar{width:48px;height:48px;border-radius:50%;background:var(--accent-bg);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;flex-shrink:0}
+.team-cal-sel-info{flex:1}
+.team-cal-sel-name{font-size:16px;font-weight:600;color:var(--text);margin-bottom:2px}
+.team-cal-sel-email{font-size:13px;color:var(--text2)}
+.team-cal-close-btn{padding:6px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text2);font-size:13px;cursor:pointer;transition:all .15s}
+.team-cal-close-btn:hover{color:var(--text);border-color:var(--accent)}
+.team-cal-calendar-wrapper{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--r2);padding:20px}
+.team-cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.team-cal-month-label{font-size:17px;font-weight:600;color:var(--text);flex:1;text-align:center}
+.team-cal-placeholder{text-align:center;padding:60px 20px;color:var(--text3)}
+.team-cal-placeholder-icon{font-size:48px;margin-bottom:12px}
+.team-cal-placeholder-text{font-size:15px}
+</style>

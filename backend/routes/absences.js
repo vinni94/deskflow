@@ -238,3 +238,25 @@ router.get('/all', requireAuth, requireAdmin, async (req, res) => {
 });
 
 module.exports = router;
+
+// ── GET /api/absences/user/:userId?dateFrom=&dateTo= ─────── (all users)
+// Returns a specific user's absences for a date range (accessible to all authenticated users)
+router.get('/user/:userId', requireAuth, async (req, res) => {
+  const { userId } = req.params;
+  const { dateFrom, dateTo } = req.query;
+  if (!dateFrom || !dateTo) return res.status(400).json({ error: 'dateFrom and dateTo required' });
+  try {
+    const { rows } = await pool.query(
+      `SELECT a.id, a.date::text as date, a.period, a.absence_type, u.name, u.email
+       FROM absences a
+       JOIN users u ON u.id = a.user_id
+       WHERE a.user_id=$1 AND a.date >= $2::date AND a.date <= $3::date
+       ORDER BY a.date, a.period`,
+      [userId, dateFrom, dateTo]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('GET /absences/user/:userId error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
