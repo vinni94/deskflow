@@ -206,7 +206,7 @@ function setView(v) {
   document.querySelectorAll('.nav-item').forEach(e => e.classList.toggle('active', e.dataset.view === v));
   const titles = { map:'Floor Map', absence:'My Absences', bookings:'My Bookings', 'team-calendar':'Team Calendar', admin:'Admin Dashboard', 'team-absence':'Team Absences' };
   el('topbar-title').textContent = titles[v] || v;
-  const showDateNav = v === 'map' || v === 'absence';
+  const showDateNav = v === 'map';
   el('date-nav').style.display = showDateNav ? 'flex' : 'none';
   renderView();
 }
@@ -864,8 +864,8 @@ function renderAbsenceUI() {
       </div>
     </div>`;
 
-  const fromInput = el('abs-from'); if (fromInput) fromInput.min = 2026-05-26;
-  const toInput = el('abs-to'); if (toInput) toInput.min = absState.rangeStart || 2026-05-26;
+  const fromInput = el('abs-from'); if (fromInput) fromInput.min = new Date().toISOString().split('T')[0];
+  const toInput = el('abs-to'); if (toInput) toInput.min = absState.rangeStart || new Date().toISOString().split('T')[0];
   renderAbsCalendar();
 }
 
@@ -1008,15 +1008,15 @@ function selectAbsPeriod(p) { absState.selectedPeriod = p; renderAbsenceUI(); }
 function absCalPrev() {
   if (absState.calMonth === 0) { absState.calYear--;  absState.calMonth = 11; }
   else absState.calMonth--;
-  const fromInput = el('abs-from'); if (fromInput) fromInput.min = 2026-05-26;
-  const toInput = el('abs-to'); if (toInput) toInput.min = absState.rangeStart || 2026-05-26;
+  const fromInput = el('abs-from'); if (fromInput) fromInput.min = new Date().toISOString().split('T')[0];
+  const toInput = el('abs-to'); if (toInput) toInput.min = absState.rangeStart || new Date().toISOString().split('T')[0];
   renderAbsCalendar();
 }
 function absCalNext() {
   if (absState.calMonth === 11) { absState.calYear++; absState.calMonth = 0; }
   else absState.calMonth++;
-  const fromInput = el('abs-from'); if (fromInput) fromInput.min = 2026-05-26;
-  const toInput = el('abs-to'); if (toInput) toInput.min = absState.rangeStart || 2026-05-26;
+  const fromInput = el('abs-from'); if (fromInput) fromInput.min = new Date().toISOString().split('T')[0];
+  const toInput = el('abs-to'); if (toInput) toInput.min = absState.rangeStart || new Date().toISOString().split('T')[0];
   renderAbsCalendar();
 }
 
