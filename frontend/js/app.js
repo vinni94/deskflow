@@ -852,6 +852,8 @@ function renderAbsenceUI() {
         <div class="abs-legend-item"><span class="abs-leg-swatch" style="background:#dbeafe;border-color:#93c5fd">🏠</span> WFH Full</div>
         <div class="abs-legend-item"><span class="abs-leg-swatch abs-leg-swatch-half" style="--top:#dbeafe;--bot:var(--surface2)">🏠</span> WFH AM</div>
         <div class="abs-legend-item"><span class="abs-leg-swatch abs-leg-swatch-half" style="--top:var(--surface2);--bot:#dbeafe">🏠</span> WFH PM</div>
+        <div class="abs-legend-item"><span class="abs-leg-swatch" style="background:#fee2e2;border-color:#fca5a5">🚄</span> On Mission</div>
+        <div class="abs-legend-item"><span class="abs-leg-swatch" style="background:#cffafe;border-color:#67e8f9">🏛️</span> From Institute</div>
         <div class="abs-legend-item"><span class="abs-leg-swatch" style="background:#ede9fe;border-color:#a78bfa">✈️</span> Abroad</div>
         <div class="abs-legend-item"><span class="abs-leg-swatch" style="background:#fef3c7;border-color:#fcd34d">🏝️</span> Holiday</div>
       </div>
@@ -1580,6 +1582,8 @@ async function showSelectedUserCalendar() {
         <div class="abs-legend-item"><span class="abs-leg-swatch" style="background:#dbeafe;border-color:#93c5fd">🏠</span> WFH Full</div>
         <div class="abs-legend-item"><span class="abs-leg-swatch abs-leg-swatch-half" style="--top:#dbeafe;--bot:var(--surface2)">🏠</span> WFH AM</div>
         <div class="abs-legend-item"><span class="abs-leg-swatch abs-leg-swatch-half" style="--top:var(--surface2);--bot:#dbeafe">🏠</span> WFH PM</div>
+        <div class="abs-legend-item"><span class="abs-leg-swatch" style="background:#fee2e2;border-color:#fca5a5">🚄</span> On Mission</div>
+        <div class="abs-legend-item"><span class="abs-leg-swatch" style="background:#cffafe;border-color:#67e8f9">🏛️</span> From Institute</div>
         <div class="abs-legend-item"><span class="abs-leg-swatch" style="background:#ede9fe;border-color:#a78bfa">✈️</span> Abroad</div>
         <div class="abs-legend-item"><span class="abs-leg-swatch" style="background:#fef3c7;border-color:#fcd34d">🏝️</span> Holiday</div>
       </div>
