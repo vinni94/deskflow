@@ -1212,6 +1212,8 @@ async function renderTeamAbsences() {
         <div class="abs-legend-item">🏠 WFH</div>
         <div class="abs-legend-item">✈️ Abroad</div>
         <div class="abs-legend-item">🏝️ Holiday</div>
+        <div class="abs-legend-item">🚄 On Mission</div>
+        <div class="abs-legend-item">🏛️ From Institute</div>
         <div class="abs-legend-item" style="font-size:11px;color:var(--text3)">Half-filled = half-day WFH</div>
       </div>
     </div>`;
