@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Floor Map Coordinate Helper</title>
+  <style>
+    body { font-family: Arial; padding: 20px; background: #f5f5f5; }
+    #container { position: relative; display: inline-block; background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    #floorMap { display: block; max-width: 100%; cursor: crosshair; }
+    #info { margin-top: 20px; padding: 15px; background: white; border-radius: 8px; }
+    .coord { font-family: monospace; background: #e3f2fd; padding: 2px 6px; border-radius: 3px; }
+    #output { margin-top: 10px; padding: 10px; background: #f5f5f5; border-radius: 4px; font-family: monospace; font-size: 12px; }
+    h3 { margin-top: 0; color: #1976d2; }
+    .marker { position: absolute; width: 10px; height: 10px; background: red; border: 2px solid white; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; box-shadow: 0 0 4px rgba(0,0,0,0.5); }
+    .label { position: absolute; background: rgba(0,0,0,0.8); color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; transform: translate(-50%, -120%); pointer-events: none; white-space: nowrap; }
+  </style>
+</head>
+<body>
+  <h1>🗺️ Floor Map Coordinate Helper</h1>
+  <p>Click on the floor map to get coordinates for each desk position.</p>
+  
+  <div id="container">
+    <img id="floorMap" src="Toren2.png" alt="Floor Map">
+  </div>
+  
+  <div id="info">
+    <h3>Instructions:</h3>
+    <ol>
+      <li>Click on the <strong>center</strong> of each desk on the map</li>
+      <li>The coordinates (x%, y%) will appear below</li>
+      <li>Copy the coordinate line and paste into app.js</li>
+      <li>Use the format shown in the output below</li>
+    </ol>
+    
+    <div style="margin-top: 15px;">
+      <label>Desk ID: <input type="text" id="deskId" placeholder="e.g., S1, F1" style="padding: 6px; border: 1px solid #ccc; border-radius: 4px;"></label>
+      <label style="margin-left: 15px;">Width: <input type="number" id="width" value="8" min="1" max="20" style="width: 60px; padding: 6px; border: 1px solid #ccc; border-radius: 4px;">%</label>
+      <label style="margin-left: 10px;">Height: <input type="number" id="height" value="6" min="1" max="20" style="width: 60px; padding: 6px; border: 1px solid #ccc; border-radius: 4px;">%</label>
+    </div>
+    
+    <div id="output"></div>
+  </div>
+
+  <script>
+    const img = document.getElementById('floorMap');
+    const container = document.getElementById('container');
+    const output = document.getElementById('output');
+    const deskIdInput = document.getElementById('deskId');
+    
+    img.addEventListener('click', function(e) {
+      const rect = img.getBoundingClientRect();
+      const x = ((e.clientX - rect.left) / rect.width * 100).toFixed(1);
+      const y = ((e.clientY - rect.top) / rect.height * 100).toFixed(1);
+      
+      // Add visual marker
+      const marker = document.createElement('div');
+      marker.className = 'marker';
+      marker.style.left = `${(e.clientX - rect.left) / rect.width * 100}%`;
+      marker.style.top = `${(e.clientY - rect.top) / rect.height * 100}%`;
+      container.appendChild(marker);
+      
+      const deskId = deskIdInput.value || 'S??';
+      const width = document.getElementById('width').value;
+      const height = document.getElementById('height').value;
+      
+      // Add label
+      const label = document.createElement('div');
+      label.className = 'label';
+      label.textContent = deskId;
+      label.style.left = marker.style.left;
+      label.style.top = marker.style.top;
+      container.appendChild(label);
+      
+      const code = `'${deskId}': { x: ${x}, y: ${y}, width: ${width}, height: ${height} },`;
+      
+      output.innerHTML += `<div style="padding: 4px 0; border-bottom: 1px solid #ddd;">${code}</div>`;
+      
+      // Auto-increment desk ID if it's a number
+      const match = deskId.match(/([A-Z]+)(\d+)/);
+      if (match) {
+        const prefix = match[1];
+        const num = parseInt(match[2]);
+        deskIdInput.value = prefix + (num + 1);
+      }
+    });
+    
+    // Clear markers button
+    const clearBtn = document.createElement('button');
+    clearBtn.textContent = 'Clear All Markers';
+    clearBtn.style.cssText = 'margin-top: 10px; padding: 8px 16px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer;';
+    clearBtn.onclick = () => {
+      document.querySelectorAll('.marker, .label').forEach(el => el.remove());
+      output.innerHTML = '';
+    };
+    document.getElementById('info').appendChild(clearBtn);
+    
+    // Focus desk ID input on load
+    deskIdInput.focus();
+  </script>
+</body>
+</html>

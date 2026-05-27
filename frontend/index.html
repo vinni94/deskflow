@@ -238,6 +238,22 @@ input{font-family:'DM Sans',sans-serif;outline:none}
 .tooltip-label{color:var(--text2)}
 .tooltip-val{font-weight:500}
 .t-green{color:var(--green)}
+
+/* Floor Map Interactive Hotspots */
+.floor-hotspot {
+  background-color: transparent;
+  z-index: 10;
+}
+.floor-hotspot:hover {
+  background-color: rgba(59, 130, 246, 0.15);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+}
+#floor-map-wrapper {
+  user-select: none;
+}
+#floor-map-overlay {
+  z-index: 5;
+}
 .t-blue{color:var(--blue)}
 .t-amber{color:var(--amber)}
 .t-red{color:var(--red)}
