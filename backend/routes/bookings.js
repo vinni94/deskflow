@@ -196,6 +196,7 @@ router.get('/', requireAuth, requireAdmin, async (req, res) => {
 // ── GET /api/bookings/seat/:seatId/history — Get booking history for a specific seat
 router.get('/seat/:seatId/history', requireAuth, async (req, res) => {
   const { seatId } = req.params;
+  console.log('[BOOKING HISTORY] Fetching history for seat:', seatId);
   try {
     const { rows } = await pool.query(
       `SELECT b.id, b.seat_id, b.date::text as date, b.period, b.user_id,
@@ -209,6 +210,8 @@ router.get('/seat/:seatId/history', requireAuth, async (req, res) => {
        LIMIT 100`,
       [seatId]
     );
+    console.log('[BOOKING HISTORY] Found', rows.length, 'bookings for', seatId);
+    console.log('[BOOKING HISTORY] Data:', JSON.stringify(rows, null, 2));
     res.json(rows);
   } catch (err) {
     console.error('GET /bookings/seat/:seatId/history error:', err);
