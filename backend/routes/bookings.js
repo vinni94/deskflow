@@ -205,7 +205,7 @@ router.get('/seat/:seatId/history', requireAuth, async (req, res) => {
        FROM bookings b
        JOIN users u ON u.id = b.user_id
        JOIN seats s ON s.id = b.seat_id
-       WHERE b.seat_id = $1
+       WHERE b.seat_id = $1 AND b.date <= CURRENT_DATE
        ORDER BY b.date DESC, b.period
        LIMIT 100`,
       [seatId]
