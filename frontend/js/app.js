@@ -1935,7 +1935,10 @@ async function showDeskBookingHistory(seatId) {
   
   try {
     const response = await api.getSeatBookingHistory(seatId);
-    const history = response.history || response || [];
+    console.log('API response:', response);
+    console.log('Type:', typeof response, 'IsArray:', Array.isArray(response));
+    const history = Array.isArray(response) ? response : (response.history || response.rows || []);
+    console.log('History array:', history);
     
     if (!history || history.length === 0) {
       detailsDiv.innerHTML = `
