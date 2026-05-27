@@ -241,7 +241,7 @@ function logout() {
 function setView(v) {
   state.view = v;
   document.querySelectorAll('.nav-item').forEach(e => e.classList.toggle('active', e.dataset.view === v));
-  const titles = { map:'Floor Map', absence:'My Absences', bookings:'My Bookings', 'team-calendar':'Team Calendar', admin:'Admin Dashboard', 'team-absence':'Team Absences' };
+  const titles = { map:'Floor Map', absence:'My Absences', bookings:'My Bookings', 'booking-history':'Booking History', 'team-calendar':'Team Calendar', admin:'Admin Dashboard', 'team-absence':'Team Absences' };
   el('topbar-title').textContent = titles[v] || v;
   const showDateNav = v === 'map';
   el('date-nav').style.display = showDateNav ? 'flex' : 'none';
@@ -1879,6 +1879,110 @@ function teamCalToday() {
   teamCalState.calYear = today.getFullYear();
   teamCalState.calMonth = today.getMonth();
   loadTeamCalAbsences().then(() => renderTeamCalendarGrid());
+}
+
+
+// ── BOOKING HISTORY ───────────────────────────────────────────
+async function renderBookingHistory() {
+  try {
+    const seats = await loadSeats(dateKey(new Date()));
+    
+    el('main-content').innerHTML = `
+      <div class="booking-history-container">
+        <div class="booking-history-header">
+          <div class="booking-history-title">Booking History</div>
+          <div class="booking-history-subtitle">Click on any desk to view its booking history</div>
+        </div>
+        
+        <div id="floor-map-wrapper-history" style="position:relative;width:100%;max-width:700px;margin:20px auto;">
+          <img id="floor-map-image-history" src="Toren2.png" alt="Office Floor Plan" 
+               style="width:100%;border-radius:10px;border:1px solid var(--border);display:block;" />
+          <div id="floor-map-overlay-history" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;">
+            ${generateBookingHistoryHotspots(seats)}
+          </div>
+        </div>
+        
+        <div id="booking-history-details" style="max-width:900px;margin:0 auto;padding:0 20px;"></div>
+      </div>`;
+  } catch (err) {
+    showErrorState(err.message);
+  }
+}
+
+function generateBookingHistoryHotspots(seats) {
+  let hotspots = '';
+  seats.forEach(s => {
+    const coords = DESK_COORDINATES[s.id];
+    if (!coords) return;
+    
+    const style = `position:absolute;left:${coords.x}%;top:${coords.y}%;width:${coords.width||8}%;height:${coords.height||6}%;pointer-events:all;cursor:pointer;border-radius:4px;transition:background-color 0.2s;`;
+    
+    hotspots += `<div class="floor-hotspot booking-history-hotspot" 
+                      data-seat-id="${s.id}" 
+                      style="${style}" 
+                      onmouseenter="this.classList.add('highlighted')"
+                      onmouseleave="this.classList.remove('highlighted')"
+                      onclick="showDeskBookingHistory('${s.id}')">
+                 </div>`;
+  });
+  return hotspots;
+}
+
+async function showDeskBookingHistory(seatId) {
+  const detailsDiv = el('booking-history-details');
+  detailsDiv.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text2)">Loading booking history...</div>';
+  
+  try {
+    const history = await api.getSeatBookingHistory(seatId);
+    
+    if (!history || history.length === 0) {
+      detailsDiv.innerHTML = `
+        <div class="booking-history-card">
+          <h3>Desk ${seatId} - Booking History</h3>
+          <p style="color:var(--text2);text-align:center;padding:20px;">No booking history found for this desk.</p>
+        </div>`;
+      return;
+    }
+    
+    const rows = history.map(b => {
+      const date = new Date(b.date);
+      const formattedDate = fmtDate(date);
+      const period = b.period || 'Full Day';
+      return `
+        <tr>
+          <td>${formattedDate}</td>
+          <td>${period}</td>
+          <td>${esc(b.booked_by_name)}</td>
+          <td><span class="status-badge ${b.status}">${b.status || 'completed'}</span></td>
+        </tr>`;
+    }).join('');
+    
+    detailsDiv.innerHTML = `
+      <div class="booking-history-card">
+        <h3>Desk ${seatId} - Booking History</h3>
+        <div style="overflow-x:auto;">
+          <table class="booking-history-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Period</th>
+                <th>Booked By</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+  } catch (err) {
+    detailsDiv.innerHTML = `
+      <div class="booking-history-card">
+        <h3>Desk ${seatId} - Booking History</h3>
+        <p style="color:var(--red);text-align:center;padding:20px;">Error loading booking history: ${err.message}</p>
+      </div>`;
+  }
 }
 
 // Close suggestions when clicking outside

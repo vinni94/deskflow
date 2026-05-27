@@ -192,4 +192,28 @@ router.get('/', requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
+
+// ── GET /api/bookings/seat/:seatId/history — Get booking history for a specific seat
+router.get('/seat/:seatId/history', requireAuth, async (req, res) => {
+  const { seatId } = req.params;
+  try {
+    const { rows } = await pool.query(
+      `SELECT b.id, b.seat_id, b.date::text as date, b.period, b.user_id,
+              u.name AS booked_by_name, s.type AS seat_type, s.zone,
+              CASE WHEN b.date < CURRENT_DATE THEN 'completed' ELSE 'active' END as status
+       FROM bookings b
+       JOIN users u ON u.id = b.user_id
+       JOIN seats s ON s.id = b.seat_id
+       WHERE b.seat_id = $1
+       ORDER BY b.date DESC, b.period
+       LIMIT 100`,
+      [seatId]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('GET /bookings/seat/:seatId/history error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 module.exports = router;
