@@ -15,43 +15,6 @@ const state = {
   absencesCache: {},    // { [weekStart]: [...absences] }
 };
 
-// ══════════════════════════════════════════════════════════════
-// DESK COORDINATES CONFIGURATION FOR FLOOR MAP IMAGE
-// Coordinates are in percentages (0-100) relative to image dimensions
-// Format: { x: left%, y: top%, width: %, height: % }
-// ══════════════════════════════════════════════════════════════
-const DESK_COORDINATES = {
-  // ========== FLEXI DESKS (5 total) - UPDATE THESE! ==========
-  'F1': { x: 61.3, y: 43.4, width: 10, height: 3 },
-  'F2': { x: 76.2, y: 43.5, width: 10, height: 3 },
-  'F3': { x: 61.3, y: 60.1, width: 10, height: 3 },
-  'F4': { x: 76.4, y: 87.6, width: 10, height: 3 },
-  'F5': { x: 61.8, y: 87.5, width: 10, height: 3 },
-  // ========== STANDARD DESKS (16 total) - UPDATE THESE! ==========
-  'S1': { x: 13.5, y: 31.9, width: 10, height: 3 },
-  'S2': { x: 13.4, y: 35.4, width: 10, height: 3 },
-  'S3': { x: 61.2, y: 40.2, width: 10, height: 3 },
-  'S4': { x: 75.8, y: 40.3, width: 10, height: 3 },
-  'S5': { x: 80.5, y: 50.0, width: 5.2, height: 6.5 },
-  'S6': { x: 76.0, y: 20.7, width: 10, height: 3 },
-  'S7': { x: 61.0, y: 25.2, width: 10, height: 3 },
-  'S8': { x: 76.0, y: 24.0, width: 10, height: 3 },
-  'S9': { x: 76.3, y: 30.3, width: 10, height: 3 },
-  'S10': { x: 76.3, y: 33.4, width: 10, height: 3 },
-  'S11': { x: 61.1, y: 33.4, width: 10, height: 3 },
-  'S12': { x: 61.0, y: 28.3, width: 10, height: 3 },
-  'S13': { x: 76.6, y: 60.1, width: 10, height: 3 },
-  'S14': { x: 61.4, y: 65.8, width: 10, height: 3 },
-  'S15': { x: 76.6, y: 65.7, width: 10, height: 3 },
-  'S16': { x: 61.3, y: 68.9, width: 10, height: 3 },
-  'S17': { x: 76.6, y: 68.9, width: 10, height: 3 },
-  'S18': { x: 76.7, y: 75.2, width: 10, height: 3 },
-  'S19': { x: 76.6, y: 80.3, width: 10, height: 3 },
-  'S20': { x: 61.8, y: 90.8, width: 10, height: 3 },
-  'S21': { x: 76.8, y: 91.0, width: 10, height: 3 },
-};
-
-
 // ── HELPERS ──────────────────────────────────────────────────
 function dateKey(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -367,37 +330,6 @@ function renderView() {
   else if (state.view === 'team-calendar') renderTeamCalendar();
 }
 
-
-
-// ── FLOOR MAP HIGHLIGHT FUNCTIONS ─────────────────────────────
-function highlightDeskOnMap(seatId) {
-  const hotspot = document.querySelector(`.floor-hotspot[data-seat-id="${seatId}"]`);
-  if (hotspot) {
-    hotspot.classList.add('highlighted');
-  }
-}
-
-function unhighlightDeskOnMap(seatId) {
-  const hotspot = document.querySelector(`.floor-hotspot[data-seat-id="${seatId}"]`);
-  if (hotspot) {
-    hotspot.classList.remove('highlighted');
-  }
-}
-
-// ── GENERATE FLOOR MAP HOTSPOTS ───────────────────────────────
-function generateFloorMapHotspots(seats, dk) {
-  let hotspots = '';
-  seats.forEach(s => {
-    const coords = DESK_COORDINATES[s.id];
-    if (!coords) return;
-    
-    const style = `position:absolute;left:${coords.x}%;top:${coords.y}%;width:${coords.width||8}%;height:${coords.height||6}%;pointer-events:all;cursor:pointer;border-radius:4px;transition:background-color 0.2s;`;
-    
-    hotspots += `<div class="floor-hotspot" data-seat-id="${s.id}" style="${style}" onmouseenter="showTooltipForSeat(event,'${s.id}','${dk}')" onmouseleave="hideTooltip()" onclick="onSeatClick('${s.id}','${dk}')"></div>`;
-  });
-  return hotspots;
-}
-
 // ── FLOOR MAP ─────────────────────────────────────────────────
 async function renderMap() {
   const dk = dateKey(state.selectedDate);
@@ -415,8 +347,8 @@ async function renderMap() {
       const cls  = getSeatClass(s, u, hasAMStdBooking, hasPMStdBooking, hasFlexiBooking);
       const icon = getSeatIcon(cls);
       return `<div class="seat ${cls}"
-        onmouseenter="showTooltipForSeat(event,'${esc(s.id)}','${dk}'); highlightDeskOnMap('${esc(s.id)}')"
-        onmouseleave="hideTooltip(); unhighlightDeskOnMap('${esc(s.id)}')"
+        onmouseenter="showTooltipForSeat(event,'${esc(s.id)}','${dk}')"
+        onmouseleave="hideTooltip()"
         onclick="onSeatClick('${esc(s.id)}','${dk}')">
         <div class="seat-icon">${icon}</div>
         <div class="seat-id">${esc(s.id)}</div>
@@ -448,12 +380,7 @@ async function renderMap() {
           <div class="area-label" style="grid-column:span 8">STANDARD DESKS <div class="area-divider"></div></div>
           ${stdHTML}${emptyHTML}
         </div>
-        <div id="floor-map-wrapper" style="position:relative;width:100%;max-width:700px;margin-top:24px;">
-          <img id="floor-map-image" src="Toren2.png" alt="Office Floor Plan" style="width:100%;border-radius:10px;border:1px solid var(--border);display:block;" />
-          <div id="floor-map-overlay" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;">
-            ${generateFloorMapHotspots(seats, dk)}
-          </div>
-        </div>
+        <img src="Toren2.png" alt="Office Floor Plan" style="width:100%;max-width:700px;margin-top:24px;border-radius:10px;border:1px solid var(--border);display:block;" />
       </div>`;
   } catch (err) {
     showErrorState(err.message);
