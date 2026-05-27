@@ -362,6 +362,7 @@ function renderView() {
   if      (state.view === 'map')      renderMap();
   else if (state.view === 'absence')  renderAbsence();
   else if (state.view === 'bookings') renderBookings();
+  else if (state.view === 'booking-history') renderBookingHistory();
   else if (state.view === 'admin')    renderAdmin();
   else if (state.view === 'team-absence') renderTeamAbsences();
   else if (state.view === 'team-calendar') renderTeamCalendar();
