@@ -1934,7 +1934,8 @@ async function showDeskBookingHistory(seatId) {
   detailsDiv.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text2)">Loading booking history...</div>';
   
   try {
-    const history = await api.getSeatBookingHistory(seatId);
+    const response = await api.getSeatBookingHistory(seatId);
+    const history = response.history || response || [];
     
     if (!history || history.length === 0) {
       detailsDiv.innerHTML = `
