@@ -75,6 +75,23 @@ router.delete('/seats/:seatId/unassign', async (req, res) => {
   }
 });
 
+// DELETE /api/admin/absences/cleanup - Delete absences older than 1 year
+router.delete('/absences/cleanup', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `DELETE FROM absences WHERE date < CURRENT_DATE - INTERVAL '1 year'`
+    );
+    res.json({ 
+      success: true, 
+      deletedCount: result.rowCount,
+      message: `Deleted ${result.rowCount} absence record${result.rowCount !== 1 ? 's' : ''} older than 1 year`
+    });
+  } catch (err) {
+    console.error('DELETE /admin/absences/cleanup error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 module.exports = router;
 
 // GET /api/admin/stats - Get dashboard statistics

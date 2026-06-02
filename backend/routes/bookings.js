@@ -196,22 +196,37 @@ router.get('/', requireAuth, requireAdmin, async (req, res) => {
 // ── GET /api/bookings/seat/:seatId/history — Get booking history for a specific seat
 router.get('/seat/:seatId/history', requireAuth, async (req, res) => {
   const { seatId } = req.params;
+  const { dateFrom, dateTo } = req.query;
+  
   console.log('[BOOKING HISTORY] Fetching history for seat:', seatId);
+  console.log('[BOOKING HISTORY] Date range:', dateFrom, 'to', dateTo);
+  
   try {
-    const { rows } = await pool.query(
-      `SELECT b.id, b.seat_id, b.date::text as date, b.period, b.user_id,
-              u.name AS booked_by_name, s.type AS seat_type, s.zone,
-              CASE WHEN b.date < CURRENT_DATE THEN 'completed' ELSE 'active' END as status
-       FROM bookings b
-       JOIN users u ON u.id = b.user_id
-       JOIN seats s ON s.id = b.seat_id
-       WHERE b.seat_id = $1 AND b.date <= CURRENT_DATE
-       ORDER BY b.date DESC, b.period
-       LIMIT 100`,
-      [seatId]
-    );
+    // Build query with date filtering
+    let query = `
+      SELECT b.id, b.seat_id, b.date::text as date, b.period, b.user_id,
+             u.name AS booked_by_name, s.type AS seat_type, s.zone,
+             CASE WHEN b.date < CURRENT_DATE THEN 'completed' ELSE 'active' END as status
+      FROM bookings b
+      JOIN users u ON u.id = b.user_id
+      JOIN seats s ON s.id = b.seat_id
+      WHERE b.seat_id = $1`;
+    
+    const params = [seatId];
+    
+    // Add date range filter if provided
+    if (dateFrom && dateTo) {
+      query += ` AND b.date BETWEEN $2 AND $3`;
+      params.push(dateFrom, dateTo);
+    } else {
+      // Default: only show past 7 days if no range provided
+      query += ` AND b.date >= CURRENT_DATE - INTERVAL '7 days' AND b.date <= CURRENT_DATE`;
+    }
+    
+    query += ` ORDER BY b.date DESC, b.period LIMIT 100`;
+    
+    const { rows } = await pool.query(query, params);
     console.log('[BOOKING HISTORY] Found', rows.length, 'bookings for', seatId);
-    console.log('[BOOKING HISTORY] Data:', JSON.stringify(rows, null, 2));
     res.json(rows);
   } catch (err) {
     console.error('GET /bookings/seat/:seatId/history error:', err);

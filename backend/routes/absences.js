@@ -11,16 +11,25 @@ router.get('/', requireAuth, async (req, res) => {
   if (targetId !== req.user.id && req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Not authorized' });
   }
+  
+  // Enforce 1-year historical limit
+  const oneYearAgo = new Date();
+  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+  const minDate = oneYearAgo.toISOString().split('T')[0];
+  
   try {
     let query, params;
     if (weekStart && /^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
       query = `SELECT id, date::text as date, period, absence_type FROM absences
                WHERE user_id=$1 AND date >= $2::date AND date < $2::date + INTERVAL '5 days'
+               AND date >= $3::date
                ORDER BY date, period`;
-      params = [targetId, weekStart];
+      params = [targetId, weekStart, minDate];
     } else {
-      query  = `SELECT id, date::text as date, period, absence_type FROM absences WHERE user_id=$1 ORDER BY date, period`;
-      params = [targetId];
+      query  = `SELECT id, date::text as date, period, absence_type FROM absences 
+                WHERE user_id=$1 AND date >= $2::date 
+                ORDER BY date, period`;
+      params = [targetId, minDate];
     }
     const { rows } = await pool.query(query, params);
     res.json(rows);
@@ -52,20 +61,32 @@ router.get('/range', requireAuth, async (req, res) => {
 // Returns all users' absences for the requested week (Mon-Fri)
 router.get('/team', requireAuth, requireAdmin, async (req, res) => {
   const { weekStart, dateFrom, dateTo } = req.query;
+  
+  // Enforce 1-year historical limit
+  const oneYearAgo = new Date();
+  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+  const minDate = oneYearAgo.toISOString().split('T')[0];
+  
   try {
     let query, params;
     if (weekStart && /^\d{4}-\d{2}-\d{2}$/.test(weekStart)) {
+      // Prevent viewing data older than 1 year
+      if (weekStart < minDate) {
+        return res.status(400).json({ error: 'Cannot view absences older than 1 year' });
+      }
       query = `SELECT a.user_id, u.name, a.date, a.period, a.absence_type
                FROM absences a JOIN users u ON u.id = a.user_id
                WHERE a.date >= $1::date AND a.date < $1::date + INTERVAL '5 days'
+               AND a.date >= $2::date
                ORDER BY u.name, a.date, a.period`;
-      params = [weekStart];
+      params = [weekStart, minDate];
     } else if (dateFrom && dateTo) {
       query = `SELECT a.user_id, u.name, a.date, a.period, a.absence_type
                FROM absences a JOIN users u ON u.id = a.user_id
                WHERE a.date >= $1::date AND a.date <= $2::date
+               AND a.date >= $3::date
                ORDER BY u.name, a.date, a.period`;
-      params = [dateFrom, dateTo];
+      params = [dateFrom, dateTo, minDate];
     } else {
       return res.status(400).json({ error: 'weekStart or dateFrom+dateTo required' });
     }
@@ -245,14 +266,21 @@ router.get('/user/:userId', requireAuth, async (req, res) => {
   const { userId } = req.params;
   const { dateFrom, dateTo } = req.query;
   if (!dateFrom || !dateTo) return res.status(400).json({ error: 'dateFrom and dateTo required' });
+  
+  // Enforce 1-year historical limit
+  const oneYearAgo = new Date();
+  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+  const minDate = oneYearAgo.toISOString().split('T')[0];
+  
   try {
     const { rows } = await pool.query(
       `SELECT a.id, a.date::text as date, a.period, a.absence_type, u.name, u.email
        FROM absences a
        JOIN users u ON u.id = a.user_id
        WHERE a.user_id=$1 AND a.date >= $2::date AND a.date <= $3::date
+       AND a.date >= $4::date
        ORDER BY a.date, a.period`,
-      [userId, dateFrom, dateTo]
+      [userId, dateFrom, dateTo, minDate]
     );
     res.json(rows);
   } catch (err) {

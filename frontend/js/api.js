@@ -59,6 +59,7 @@ const api = {
   adminStats:     (date)                        => apiFetch(`/admin/stats?date=${date}`),
   teamAbsences:   (weekStart)                   => apiFetch(`/absences/team?weekStart=${weekStart}`),
   adminGetUsers: () => apiFetch('/admin/users'),
+  adminCleanupOldAbsences: () => apiFetch('/admin/absences/cleanup', { method: 'DELETE' }),
   adminAssignSeat: (seatId, userId) => apiFetch('/admin/seats/' + seatId + '/assign', {
     method: 'PUT',
     body: { userId }
@@ -66,7 +67,8 @@ const api = {
   adminUnassignSeat: (seatId) => apiFetch('/admin/seats/' + seatId + '/unassign', {
     method: 'DELETE'
   }),
-  getSeatBookingHistory: (seatId) => apiFetch(`/bookings/seat/${seatId}/history`),
+  getSeatBookingHistory: (seatId, dateFrom, dateTo) => 
+    apiFetch(`/bookings/seat/${seatId}/history?dateFrom=${dateFrom}&dateTo=${dateTo}`),
 };
 
 window.api = api;

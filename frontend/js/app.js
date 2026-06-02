@@ -214,6 +214,8 @@ function loginSuccess(user) {
   // Clear previous user's absence data
   absState.absenceMap = {};
   absState.loaded = false;
+  // Load user-specific team immediately
+  loadMyTeam();
   el('auth-screen').style.display = 'none';
   el('app').style.display = 'flex';
   el('sidebar-avatar').textContent = user.name.split(' ').map(n=>n[0]).join('').slice(0,2).toUpperCase();
@@ -231,6 +233,11 @@ function logout() {
   state.absencesCache = {};
   absState.absenceMap = {};  // Clear absence data on logout
   absState.loaded = false;
+  // Reset team calendar state completely
+  teamCalState.myTeam = [];
+  teamCalState.viewMode = 'individual';
+  teamCalState.selectedUser = null;
+  teamCalState.teamAbsences = {};
   el('app').style.display = 'none';
   el('admin-nav').style.display = 'none';
   el('auth-screen').style.display = 'flex';
@@ -804,7 +811,7 @@ async function onSeatClick(seatId, dk) {
   });
 }
 
-// ── ABSENCES ──────────────────────────────────────────────────
+// ── ABSENCE TYPES ──────────────────────────────────────────────────
 const ABSENCE_TYPES = {
   wfh:       { label: 'Work From Home',              icon: '🏠', color: '#3b82f6', bg: '#dbeafe', border: '#93c5fd' },
   abroad:    { label: 'Working Abroad',              icon: '✈️',  color: '#7c3aed', bg: '#ede9fe', border: '#a78bfa' },
@@ -998,7 +1005,7 @@ function renderAbsCalendar() {
     row.forEach(cell => {
       html += `<div style="${COL_W}">`;
       if (cell.empty) {
-        html += `<div style="${DAY_STY};border-color:transparent;background:transparent;cursor:default;visibility:hidden"></div>`;
+        html += `<div style="${DAY_STY};border-color:transparent;background:transparent;visibility:hidden"></div>`;
       } else if (cell.isWeekend) {
         html += `<div style="${DAY_STY};border-color:var(--border);background:var(--surface2);opacity:.35;cursor:default">
           <span style="font-size:11px;color:var(--text3)">${cell.d}</span>
@@ -1225,8 +1232,23 @@ async function renderTeamAbsences() {
   const dow   = today.getDay() || 7;
   const mon   = new Date(today); mon.setDate(today.getDate() - (dow - 1));
   if (window.teamAbsWeekOffset === undefined) window.teamAbsWeekOffset = 0;
+  
+  // Calculate 1 year ago limit
+  const oneYearAgo = new Date();
+  oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+  oneYearAgo.setHours(0, 0, 0, 0);
+  
   const weekMon = new Date(mon);
   weekMon.setDate(mon.getDate() + window.teamAbsWeekOffset * 7);
+  
+  // Prevent navigation beyond 1 year ago
+  if (weekMon < oneYearAgo) {
+    window.teamAbsWeekOffset = Math.floor((oneYearAgo - mon) / (7 * 24 * 60 * 60 * 1000));
+    weekMon.setTime(mon.getTime());
+    weekMon.setDate(mon.getDate() + window.teamAbsWeekOffset * 7);
+    showToast('Cannot view absences older than 1 year', 'warning');
+  }
+  
   const ws = dateKey(weekMon);
   try {
     const [rows, users] = await Promise.all([api.teamAbsences(ws), api.adminUsers()]);
@@ -1238,6 +1260,11 @@ async function renderTeamAbsences() {
       if (!userMap[r.user_id].days[dk]) userMap[r.user_id].days[dk] = { AM: null, PM: null };
       userMap[r.user_id].days[dk][r.period] = r.absence_type;
     });
+    
+    // Calculate min navigation limit for disabling back button
+    const minWeekOffset = Math.floor((oneYearAgo - mon) / (7 * 24 * 60 * 60 * 1000));
+    const canGoBack = window.teamAbsWeekOffset > minWeekOffset;
+    
     const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     const weekDays = [];
     for (let i = 0; i < 5; i++) {
@@ -1247,7 +1274,7 @@ async function renderTeamAbsences() {
     let html = `<div class="team-abs-container">
       <div class="team-abs-header">
         <div class="team-abs-nav">
-          <button class="calendar-month-btn" onclick="teamAbsNavWeek(-1)">‹</button>
+          <button class="calendar-month-btn" onclick="teamAbsNavWeek(-1)" ${!canGoBack ? 'disabled style="opacity:0.3;cursor:not-allowed"' : ''}>‹</button>
           <span class="team-abs-week-label">Week of ${weekMon.getDate()} ${MONTHS[weekMon.getMonth()]} ${weekMon.getFullYear()}</span>
           <button class="calendar-month-btn" onclick="teamAbsNavWeek(1)">›</button>
         </div>
@@ -1293,7 +1320,15 @@ async function renderTeamAbsences() {
       </div>
     </div>`;
     el('main-content').innerHTML = html;
-  } catch(err) { showErrorState(err.message); }
+  } catch(err) { 
+    if (err.message && err.message.includes('older than 1 year')) {
+      showToast('Cannot view absences older than 1 year', 'warning');
+      window.teamAbsWeekOffset = 0;
+      renderTeamAbsences();
+    } else {
+      showErrorState(err.message); 
+    }
+  }
 }
 
 function teamAbsNavWeek(delta) {
@@ -1307,10 +1342,21 @@ async function renderBookings() {
     const bookings = await api.myBookings();
     state.bookingsCache = bookings;
 
-    if (!bookings.length) {
+    // Filter: only show bookings from 7 days ago onwards
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const sevenDaysAgo = new Date(today);
+    sevenDaysAgo.setDate(today.getDate() - 7);
+    
+    const relevantBookings = bookings.filter(b => {
+      const bookingDate = new Date(b.date);
+      return bookingDate >= sevenDaysAgo;
+    });
+
+    if (!relevantBookings.length) {
       el('main-content').innerHTML = `<div class="empty-state">
         <div style="font-size:40px;margin-bottom:12px">🗓️</div>
-        <div style="font-size:15px;font-weight:500">No bookings yet</div>
+        <div style="font-size:15px;font-weight:500">No active bookings</div>
         <div style="font-size:13px;margin-top:6px;color:var(--text2)">Go to the Floor Map and book a desk</div>
       </div>`; return;
     }
@@ -1319,7 +1365,7 @@ async function renderBookings() {
     // AM and PM on DIFFERENT seats → separate cards (correct, different desk IDs)
     const groups = [];
     const seenKey = {};
-    bookings.forEach(b => {
+    relevantBookings.forEach(b => {
       const isFlex  = b.seat_type === 'flexi';
       const bPeriod = (b.period || '').toUpperCase();
 
@@ -1362,11 +1408,15 @@ async function renderBookings() {
       const p1      = (b.period  || '').toUpperCase();
       const p2      = b2 ? (b2.period || '').toUpperCase() : null;
 
+      // Check if booking is in the past
+      const bookingDate = new Date(dateStr);
+      bookingDate.setHours(0, 0, 0, 0);
+      const isPast = bookingDate < today;
+
       // Date header
       if (dateStr !== lastDate) {
         lastDate = dateStr;
         const d   = new Date(dateStr + 'T12:00:00');
-        const today = new Date(); today.setHours(0,0,0,0);
         const dMid  = new Date(dateStr + 'T00:00:00');
         const isToday = dMid.toDateString() === today.toDateString();
         const label = isToday
@@ -1397,23 +1447,28 @@ async function renderBookings() {
 
       const typeBadge = `<span class="badge ${isFlex?'badge-flexi':'badge-std'}">${isFlex?'Flexi':'Standard'}</span>`;
 
-      // Cancel button(s)
+      // Cancel button(s) - only show if NOT in the past
       let cancelBtns = '';
-      if (!isFlex && p2) {
-        const amB = p1 === 'AM' ? b : b2;
-        const pmB = p1 === 'PM' ? b : b2;
-        cancelBtns = `<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
-            <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px"
-              onclick="cancelMyBooking('${esc(amB.id)}')">Cancel AM</button>
-            <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px"
-              onclick="cancelMyBooking('${esc(pmB.id)}')">Cancel PM</button>
-          </div>`;
+      if (!isPast) {
+        if (!isFlex && p2) {
+          const amB = p1 === 'AM' ? b : b2;
+          const pmB = p1 === 'PM' ? b : b2;
+          cancelBtns = `<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
+              <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px"
+                onclick="cancelMyBooking('${esc(amB.id)}')">Cancel AM</button>
+              <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px"
+                onclick="cancelMyBooking('${esc(pmB.id)}')">Cancel PM</button>
+            </div>`;
+        } else {
+          cancelBtns = `<button class="btn btn-ghost" style="font-size:12px;padding:7px 14px"
+            onclick="cancelMyBooking('${esc(b.id)}')">Cancel</button>`;
+        }
       } else {
-        cancelBtns = `<button class="btn btn-ghost" style="font-size:12px;padding:7px 14px"
-          onclick="cancelMyBooking('${esc(b.id)}')">Cancel</button>`;
+        // Show a past badge instead of cancel button
+        cancelBtns = `<span class="badge" style="background:var(--surface3);color:var(--text3);border:none">Past</span>`;
       }
 
-      html += `<div class="booking-card">
+      html += `<div class="booking-card" style="${isPast ? 'opacity:0.6' : ''}">
         <div class="booking-info">
           <div class="booking-icon">${periodIcon}</div>
           <div class="booking-detail">
@@ -1430,8 +1485,6 @@ async function renderBookings() {
   } catch(err) { showErrorState(err.message); }
 }
 
-
-
 async function cancelMyBooking(bookingId) {
   showModal({
     title: 'Cancel booking?',
@@ -1444,7 +1497,14 @@ async function cancelMyBooking(bookingId) {
             state.seatsCache = {};
             showToast('Booking cancelled');
             renderView();
-          } catch(e){ showToast(e.message,'error'); }
+          } catch(e){ 
+            // Better error handling for past bookings
+            if (e.message.includes('past') || e.message.includes('cannot cancel')) {
+              showToast('Cannot cancel past bookings', 'error');
+            } else {
+              showToast(e.message, 'error');
+            }
+          }
       }},
       { label:'Keep it', cls:'btn-ghost', fn: closeModal }
     ]
@@ -1552,6 +1612,16 @@ window.unassignSeat = async function(seatId) {
   }
 }
 
+window.cleanupOldAbsences = async function() {
+  if (!confirm('Delete all absence records older than 1 year? This cannot be undone.')) return;
+  try {
+    const result = await api.adminCleanupOldAbsences();
+    showToast(result.message || `Deleted ${result.deletedCount} records`, 'success');
+  } catch (err) {
+    showToast(err.message || 'Failed to cleanup old data', 'error');
+  }
+}
+
   const dk = dateKey(state.selectedDate);
   try {
     const [stats, users] = await Promise.all([api.adminStats(dk), api.adminUsers()]);
@@ -1564,6 +1634,13 @@ window.unassignSeat = async function(seatId) {
         <div class="stat-card"><div class="stat-label">Users</div><div class="stat-val">${stats.totalUsers}</div></div>
         <div class="stat-card"><div class="stat-label">Bookings Today</div><div class="stat-val">${stats.bookingsToday}</div><div class="stat-sub">${fmtDate(state.selectedDate)}</div></div>
         <div class="stat-card"><div class="stat-label">In Office</div><div class="stat-val">${occupancyPct}%</div><div class="stat-sub">${stats.absentsToday} absent today</div></div>
+      </div>
+      <div style="margin-bottom:16px;padding:12px 16px;background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-weight:500;font-size:13px;margin-bottom:2px">🗑️ Database Maintenance</div>
+          <div style="font-size:12px;color:var(--text3)">Remove absence records older than 1 year to save space</div>
+        </div>
+        <button class="btn btn-ghost" onclick="cleanupOldAbsences()" style="font-size:12px;padding:6px 14px">Cleanup Old Data</button>
       </div>
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);overflow:hidden">
         <div style="padding:16px 20px;border-bottom:1px solid var(--border);font-size:14px;font-weight:600">Team Members</div>
@@ -1649,10 +1726,58 @@ let teamCalState = {
   calMonth: new Date().getMonth(),
   absenceMap: {},
   searchTimeout: null,
+  viewMode: 'individual', // 'individual' or 'myteam'
+  myTeam: [],
+  teamWeekOffset: 0,
+  teamAbsences: {},
 };
 
+function getMyTeamStorageKey() {
+  return state.currentUser ? `deskflow_myteam_${state.currentUser.id}` : 'deskflow_myteam';
+}
+
+function loadMyTeam() {
+  // Migrate from old shared key if needed
+  if (state.currentUser) {
+    const oldKey = 'deskflow_myteam';
+    const newKey = getMyTeamStorageKey();
+    
+    // If new key doesn't exist but old one does, migrate it once
+    if (!localStorage.getItem(newKey) && localStorage.getItem(oldKey)) {
+      localStorage.setItem(newKey, localStorage.getItem(oldKey));
+      localStorage.removeItem(oldKey); // Clean up old key
+    }
+  }
+  
+  const key = getMyTeamStorageKey();
+  teamCalState.myTeam = JSON.parse(localStorage.getItem(key) || '[]');
+}
+
+function saveMyTeam() {
+  const key = getMyTeamStorageKey();
+  localStorage.setItem(key, JSON.stringify(teamCalState.myTeam));
+}
+
 async function renderTeamCalendar() {
+  loadMyTeam(); // Load user-specific team
+  const isMyTeamView = teamCalState.viewMode === 'myteam';
+  
   el('main-content').innerHTML = `
+    <div class="team-cal-view-tabs" style="margin-bottom:16px;display:flex;gap:8px;border-bottom:1px solid var(--border);padding-bottom:2px">
+      <button class="team-cal-tab ${!isMyTeamView ? 'active' : ''}" onclick="switchTeamCalView('individual')" style="padding:8px 16px;background:${!isMyTeamView ? 'var(--accent)' : 'transparent'};color:${!isMyTeamView ? 'white' : 'var(--text2)'};border:none;border-radius:6px 6px 0 0;font-size:13px;font-weight:500;cursor:pointer;transition:all .2s">👤 Individual</button>
+      <button class="team-cal-tab ${isMyTeamView ? 'active' : ''}" onclick="switchTeamCalView('myteam')" style="padding:8px 16px;background:${isMyTeamView ? 'var(--accent)' : 'transparent'};color:${isMyTeamView ? 'white' : 'var(--text2)'};border:none;border-radius:6px 6px 0 0;font-size:13px;font-weight:500;cursor:pointer;transition:all .2s">👥 My Team ${teamCalState.myTeam.length > 0 ? `(${teamCalState.myTeam.length})` : ''}</button>
+    </div>
+    <div id="team-cal-content"></div>`;
+
+  if (isMyTeamView) {
+    renderMyTeamView();
+  } else {
+    renderIndividualView();
+  }
+}
+
+function renderIndividualView() {
+  el('team-cal-content').innerHTML = `
     <div class="team-cal-search-container">
       <div class="team-cal-search-box">
         <span class="team-cal-search-icon">🔍</span>
@@ -1864,6 +1989,277 @@ function clearTeamCalSelection() {
   renderTeamCalendar();
 }
 
+window.switchTeamCalView = function(mode) {
+  teamCalState.viewMode = mode;
+  renderTeamCalendar();
+}
+
+function renderMyTeamView() {
+  el('team-cal-content').innerHTML = `
+    <div style="margin-bottom:20px">
+      <div class="team-cal-search-box" style="margin-bottom:16px">
+        <span class="team-cal-search-icon">🔍</span>
+        <input type="text" class="team-cal-search-input" id="myteam-search"
+          placeholder="Search and add team members..." autocomplete="off"
+          oninput="handleMyTeamSearch(this.value)" onfocus="handleMyTeamFocus()" />
+        <div class="team-cal-suggestions" id="myteam-suggestions"></div>
+      </div>
+      
+      <div id="myteam-members" style="margin-bottom:20px"></div>
+      <div id="myteam-calendar"></div>
+    </div>`;
+  
+  renderMyTeamMembers();
+  if (teamCalState.myTeam.length > 0) {
+    renderMyTeamCalendar();
+  } else {
+    el('myteam-calendar').innerHTML = `
+      <div class="team-cal-placeholder">
+        <div class="team-cal-placeholder-icon">👥</div>
+        <div class="team-cal-placeholder-text">Add team members above to see their weekly availability</div>
+      </div>`;
+  }
+}
+
+function renderMyTeamMembers() {
+  const membersEl = el('myteam-members');
+  if (teamCalState.myTeam.length === 0) {
+    membersEl.innerHTML = '<div style="padding:12px;background:var(--surface2);border-radius:8px;text-align:center;color:var(--text3);font-size:13px">No team members added yet</div>';
+    return;
+  }
+  
+  membersEl.innerHTML = '<div style="font-size:12px;font-weight:600;color:var(--text3);margin-bottom:8px">MY TEAM MEMBERS</div>' +
+    '<div style="display:flex;flex-wrap:wrap;gap:8px">' +
+    teamCalState.myTeam.map(member => {
+      const initials = member.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+      return `<div style="display:flex;align-items:center;gap:8px;padding:6px 10px 6px 6px;background:var(--surface);border:1px solid var(--border);border-radius:20px;font-size:13px">
+        <div style="width:24px;height:24px;border-radius:50%;background:var(--accent);color:white;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600">${initials}</div>
+        <span style="font-weight:500">${esc(member.name)}</span>
+        <button onclick="removeFromMyTeam('${member.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:0 4px;font-size:16px;line-height:1" title="Remove">&times;</button>
+      </div>`;
+    }).join('') +
+    '</div>';
+}
+
+window.handleMyTeamSearch = async function(query) {
+  clearTimeout(teamCalState.searchTimeout);
+  const suggestionsEl = el('myteam-suggestions');
+
+  if (!query || query.trim().length < 2) {
+    suggestionsEl.classList.remove('visible');
+    return;
+  }
+
+  teamCalState.searchTimeout = setTimeout(async () => {
+    try {
+      const users = await api.searchUsers(query.trim());
+      const filtered = users.filter(u => !teamCalState.myTeam.find(m => m.id === u.id));
+      
+      if (filtered.length === 0) {
+        suggestionsEl.innerHTML = '<div style="padding:12px 16px;color:var(--text3);font-size:13px">No users found</div>';
+      } else {
+        suggestionsEl.innerHTML = filtered.map(u => {
+          const initials = u.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+          return `<div class="team-cal-suggestion-item" onclick="addToMyTeam('${u.id}', '${esc(u.name)}', '${esc(u.email)}', '${esc(u.seat_id||'')}')">
+            <div class="team-cal-sugg-avatar">${initials}</div>
+            <div class="team-cal-sugg-info">
+              <div class="team-cal-sugg-name">${esc(u.name)}</div>
+              <div class="team-cal-sugg-email">${esc(u.email)}</div>
+            </div>
+          </div>`;
+        }).join('');
+      }
+      suggestionsEl.classList.add('visible');
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }, 300);
+}
+
+window.handleMyTeamFocus = function() {
+  const input = el('myteam-search');
+  if (input && input.value.trim().length >= 2) {
+    handleMyTeamSearch(input.value);
+  }
+}
+
+window.addToMyTeam = function(userId, name, email, seatId) {
+  if (teamCalState.myTeam.find(m => m.id === userId)) {
+    showToast('Already in your team', 'warning');
+    return;
+  }
+  
+  teamCalState.myTeam.push({ id: userId, name, email, seat_id: seatId });
+  saveMyTeam();
+  
+  el('myteam-suggestions').classList.remove('visible');
+  el('myteam-search').value = '';
+  
+  renderMyTeamMembers();
+  if (teamCalState.myTeam.length === 1) {
+    renderMyTeamCalendar();
+  } else {
+    loadMyTeamAbsences().then(() => renderMyTeamWeekGrid());
+  }
+  showToast(`${name} added to your team`, 'success');
+}
+
+window.removeFromMyTeam = function(userId) {
+  const member = teamCalState.myTeam.find(m => m.id === userId);
+  if (!member) return;
+  
+  if (!confirm(`Remove ${member.name} from your team?`)) return;
+  
+  teamCalState.myTeam = teamCalState.myTeam.filter(m => m.id !== userId);
+  saveMyTeam();
+  
+  renderMyTeamMembers();
+  if (teamCalState.myTeam.length > 0) {
+    loadMyTeamAbsences().then(() => renderMyTeamWeekGrid());
+  } else {
+    el('myteam-calendar').innerHTML = `
+      <div class="team-cal-placeholder">
+        <div class="team-cal-placeholder-icon">👥</div>
+        <div class="team-cal-placeholder-text">Add team members above to see their weekly availability</div>
+      </div>`;
+  }
+  showToast(`${member.name} removed from your team`);
+}
+
+async function renderMyTeamCalendar() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const dow = today.getDay() || 7;
+  const mon = new Date(today); mon.setDate(today.getDate() - (dow - 1));
+  
+  const weekMon = new Date(mon);
+  weekMon.setDate(mon.getDate() + teamCalState.teamWeekOffset * 7);
+  
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  
+  el('myteam-calendar').innerHTML = `
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <h3 style="margin:0;font-size:14px;font-weight:600">Team Weekly View</h3>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="calendar-month-btn" onclick="myTeamNavWeek(-1)">‹</button>
+          <span style="font-size:13px;font-weight:500;min-width:140px;text-align:center" id="myteam-week-label">Week of ${weekMon.getDate()} ${MONTHS[weekMon.getMonth()]} ${weekMon.getFullYear()}</span>
+          <button class="calendar-month-btn" onclick="myTeamNavWeek(1)">›</button>
+        </div>
+      </div>
+      <div id="myteam-week-grid"></div>
+      <div class="abs-legend" style="margin-top:14px">
+        <div class="abs-legend-item">🏢 In Office</div>
+        <div class="abs-legend-item">🏠 WFH</div>
+        <div class="abs-legend-item">✈️ Abroad</div>
+        <div class="abs-legend-item">🏝️ Holiday</div>
+        <div class="abs-legend-item">🚄 On Mission</div>
+        <div class="abs-legend-item">🏛️ From Institute</div>
+        <div class="abs-legend-item" style="font-size:11px;color:var(--text3)">Half-filled = half-day</div>
+      </div>
+    </div>`;
+  
+  await loadMyTeamAbsences();
+  renderMyTeamWeekGrid();
+}
+
+async function loadMyTeamAbsences() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const dow = today.getDay() || 7;
+  const mon = new Date(today); mon.setDate(today.getDate() - (dow - 1));
+  const weekMon = new Date(mon);
+  weekMon.setDate(mon.getDate() + teamCalState.teamWeekOffset * 7);
+  
+  const weekDays = [];
+  for (let i = 0; i < 5; i++) {
+    const d = new Date(weekMon);
+    d.setDate(weekMon.getDate() + i);
+    weekDays.push(dateKey(d));
+  }
+  
+  const dateFrom = weekDays[0];
+  const dateTo = weekDays[4];
+  
+  teamCalState.teamAbsences = {};
+  
+  for (const member of teamCalState.myTeam) {
+    try {
+      const rows = await api.getUserAbsences(member.id, dateFrom, dateTo);
+      teamCalState.teamAbsences[member.id] = {};
+      rows.forEach(r => {
+        const dk = r.date.slice(0, 10);
+        if (!teamCalState.teamAbsences[member.id][dk]) {
+          teamCalState.teamAbsences[member.id][dk] = { AM: null, PM: null };
+        }
+        teamCalState.teamAbsences[member.id][dk][r.period] = r.absence_type;
+      });
+    } catch (err) {
+      console.error(`Error loading absences for ${member.name}:`, err);
+    }
+  }
+}
+
+function renderMyTeamWeekGrid() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const dow = today.getDay() || 7;
+  const mon = new Date(today); mon.setDate(today.getDate() - (dow - 1));
+  const weekMon = new Date(mon);
+  weekMon.setDate(mon.getDate() + teamCalState.teamWeekOffset * 7);
+  
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const weekDays = [];
+  for (let i = 0; i < 5; i++) {
+    const d = new Date(weekMon);
+    d.setDate(weekMon.getDate() + i);
+    weekDays.push({ dk: dateKey(d), label: ['Mon','Tue','Wed','Thu','Fri'][i], d });
+  }
+  
+  el('myteam-week-label').textContent = `Week of ${weekMon.getDate()} ${MONTHS[weekMon.getMonth()]} ${weekMon.getFullYear()}`;
+  
+  let html = `
+    <div style="overflow-x:auto">
+      <table class="team-abs-table">
+        <thead><tr>
+          <th class="team-abs-name-col">Team Member</th>
+          ${weekDays.map(d => `<th class="team-abs-day-col"><div>${d.label}</div><div class="team-abs-day-num">${d.d.getDate()} ${MONTHS[d.d.getMonth()]}</div></th>`).join('')}
+        </tr></thead>
+        <tbody>
+        ${teamCalState.myTeam.map(member => {
+          const initials = member.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+          const absences = teamCalState.teamAbsences[member.id] || {};
+          
+          return `<tr>
+            <td class="team-abs-name">
+              <div class="team-abs-avatar">${initials}</div>
+              <div><div class="team-abs-uname">${esc(member.name)}</div>${member.seat_id?`<div class="team-abs-seat">Desk ${esc(member.seat_id)}</div>`:''}</div>
+            </td>
+            ${weekDays.map(d => {
+              const day = absences[d.dk] || { AM: null, PM: null };
+              const am = day.AM, pm = day.PM;
+              let icon, bg, borderColor, title;
+              if (am === pm) {
+                if (!am) { icon='🏢'; bg='var(--surface2)'; borderColor='var(--border)'; title='In Office'; }
+                else { const m=ABSENCE_TYPES[am]; icon=m.icon; bg=m.bg; borderColor=m.border; title=m.label+' (Full Day)'; }
+              } else {
+                const absType=am||pm; const m=ABSENCE_TYPES[absType]; icon=m.icon; borderColor=m.border;
+                if (am) { bg=`linear-gradient(to bottom,${m.bg} 50%,var(--surface2) 50%)`; title=m.label+' AM · In Office PM'; }
+                else    { bg=`linear-gradient(to bottom,var(--surface2) 50%,${m.bg} 50%)`; title='In Office AM · '+m.label+' PM'; }
+              }
+              return `<td class="team-abs-cell"><div class="team-day-cell" style="background:${bg};border-color:${borderColor}" title="${title}">${icon}</div></td>`;
+            }).join('')}
+          </tr>`;
+        }).join('')}
+        </tbody>
+      </table>
+    </div>`;
+  
+  el('myteam-week-grid').innerHTML = html;
+}
+
+window.myTeamNavWeek = function(delta) {
+  teamCalState.teamWeekOffset += delta;
+  loadMyTeamAbsences().then(() => renderMyTeamWeekGrid());
+}
+
 async function teamCalNavMonth(delta) {
   if (delta > 0) {
     if (teamCalState.calMonth === 11) { teamCalState.calYear++; teamCalState.calMonth = 0; }
@@ -1935,7 +2331,16 @@ async function showDeskBookingHistory(seatId) {
   detailsDiv.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text2)">Loading booking history...</div>';
   
   try {
-    const response = await api.getSeatBookingHistory(seatId);
+    // Calculate date range: past 7 days only
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const oneWeekAgo = new Date(today);
+    oneWeekAgo.setDate(today.getDate() - 7);
+    
+    const dateFrom = dateKey(oneWeekAgo);
+    const dateTo = dateKey(today);
+    
+    const response = await api.getSeatBookingHistory(seatId, dateFrom, dateTo);
     console.log('API response:', response);
     console.log('Type:', typeof response, 'IsArray:', Array.isArray(response));
     const history = Array.isArray(response) ? response : (response.history || response.rows || []);
@@ -1944,8 +2349,8 @@ async function showDeskBookingHistory(seatId) {
     if (!history || history.length === 0) {
       detailsDiv.innerHTML = `
         <div class="booking-history-card">
-          <h3>Desk ${seatId} - Booking History</h3>
-          <p style="color:var(--text2);text-align:center;padding:20px;">No booking history found for this desk.</p>
+          <h3>Desk ${seatId} - Booking History (Past 7 Days)</h3>
+          <p style="color:var(--text2);text-align:center;padding:20px;">No booking history found for this desk in the past week.</p>
         </div>`;
       return;
     }
@@ -1965,7 +2370,7 @@ async function showDeskBookingHistory(seatId) {
     
     detailsDiv.innerHTML = `
       <div class="booking-history-card">
-        <h3>Desk ${seatId} - Booking History</h3>
+        <h3>Desk ${seatId} - Booking History (Past 7 Days)</h3>
         <div style="overflow-x:auto;">
           <table class="booking-history-table">
             <thead>
