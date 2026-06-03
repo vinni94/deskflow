@@ -884,16 +884,30 @@ function renderAbsenceUI() {
         <div class="abs-range-row">
           <div class="abs-range-field">
             <label>From</label>
-            <input type="date" id="abs-from" value="${absState.rangeStart||''}"
-              min="2026-05-26"
-              onchange="absState.rangeStart=this.value; if(absState.rangeStart < '2026-05-26') absState.rangeStart = '2026-05-26'; if(absState.rangeEnd && absState.rangeEnd < absState.rangeStart) absState.rangeEnd=null; renderAbsenceUI()" />
+            <div style="position:relative;display:flex;align-items:center;">
+              <input type="date" id="abs-from" value="${absState.rangeStart||''}"
+                min="${todayStr}"
+                style="padding-right:40px;"
+                onchange="absState.rangeStart=this.value; if(absState.rangeStart < '${todayStr}') absState.rangeStart = '${todayStr}'; if(absState.rangeEnd && absState.rangeEnd < absState.rangeStart) absState.rangeEnd=null; renderAbsenceUI()" />
+              <button onclick="document.getElementById('abs-from').showPicker()" 
+                style="position:absolute;right:8px;background:var(--surface3);border:1px solid var(--border);border-radius:4px;padding:4px 8px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text2);font-size:16px;transition:all 0.2s;"
+                onmouseover="this.style.background='var(--surface2)';this.style.borderColor='var(--accent)'"
+                onmouseout="this.style.background='var(--surface3)';this.style.borderColor='var(--border)'">📅</button>
+            </div>
           </div>
           <div class="abs-range-sep">→</div>
           <div class="abs-range-field">
             <label>To</label>
-            <input type="date" id="abs-to" value="${absState.rangeEnd||''}"
-              min="${absState.rangeStart||'2026-05-26'}"
-              onchange="absState.rangeEnd=this.value; if(absState.rangeEnd < (absState.rangeStart||'2026-05-26')) absState.rangeEnd = absState.rangeStart||'2026-05-26'; renderAbsenceUI()" />
+            <div style="position:relative;display:flex;align-items:center;">
+              <input type="date" id="abs-to" value="${absState.rangeEnd||''}"
+                min="${absState.rangeStart||todayStr}"
+                style="padding-right:40px;"
+                onchange="absState.rangeEnd=this.value; if(absState.rangeEnd < (absState.rangeStart||'${todayStr}')) absState.rangeEnd = absState.rangeStart||'${todayStr}'; renderAbsenceUI()" />
+              <button onclick="document.getElementById('abs-to').showPicker()" 
+                style="position:absolute;right:8px;background:var(--surface3);border:1px solid var(--border);border-radius:4px;padding:4px 8px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text2);font-size:16px;transition:all 0.2s;"
+                onmouseover="this.style.background='var(--surface2)';this.style.borderColor='var(--accent)'"
+                onmouseout="this.style.background='var(--surface3)';this.style.borderColor='var(--border)'">📅</button>
+            </div>
           </div>
           <button class="btn btn-primary abs-apply-btn"
             onclick="applyAbsenceRange()"
