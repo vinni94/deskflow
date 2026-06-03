@@ -42,10 +42,10 @@ const DESK_COORDINATES = {
   'S13': { x: 61.0, y: 28.3, width: 10, height: 3 },
   'S14': { x: 76.6, y: 60.1, width: 10, height: 3 },
   'S15': { x: 61.4, y: 65.8, width: 10, height: 3 },
-  'S16': { x: 76.6, y: 65.7, width: 10, height: 3 },
+  'S16': { x: 76.6, y: 63.4, width: 10, height: 3 },
   'S17': { x: 61.3, y: 68.9, width: 10, height: 3 },
-  'S18': { x: 76.6, y: 68.9, width: 10, height: 3 },
-  'S19': { x: 76.7, y: 75.2, width: 10, height: 3 },
+  'S18': { x: 76.6, y: 70.6, width: 10, height: 3 },
+  'S19': { x: 76.7, y: 73.7, width: 10, height: 3 },
   'S20': { x: 76.6, y: 80.3, width: 10, height: 3 },
   'S21': { x: 61.8, y: 90.8, width: 10, height: 3 },
   'S22': { x: 76.8, y: 91.0, width: 10, height: 3 },
@@ -134,8 +134,7 @@ function renderAuth() {
         </div>
       </div>
       <button class="auth-btn" onclick="doLogin()">Sign in →</button>
-      <div class="auth-switch">No account? <span onclick="setAuthMode('signup')">Create one</span></div>
-      <div class="demo-hint">Demo: vinayak@kuleuven.be / test123 &nbsp;·&nbsp; Admin: lars@kuleuven.be / test123</div>`;
+      <div class="auth-switch">No account? <span onclick="setAuthMode('signup')">Create one</span></div>`;
   } else {
     el('auth-form-area').innerHTML = `
       <div class="auth-title">Create account</div>
@@ -1622,6 +1621,17 @@ window.cleanupOldAbsences = async function() {
   }
 }
 
+window.removeUser = async function(userId, userName) {
+  if (!confirm(`Are you sure you want to remove user "${userName}"? This will delete all their bookings, absences, and unassign their seat. This action cannot be undone.`)) return;
+  try {
+    const result = await api.adminDeleteUser(userId);
+    showToast(result.message || 'User removed successfully', 'success');
+    renderAdmin();
+  } catch (err) {
+    showToast(err.message || 'Failed to remove user', 'error');
+  }
+}
+
   const dk = dateKey(state.selectedDate);
   try {
     const [stats, users] = await Promise.all([api.adminStats(dk), api.adminUsers()]);
@@ -1645,7 +1655,7 @@ window.cleanupOldAbsences = async function() {
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);overflow:hidden">
         <div style="padding:16px 20px;border-bottom:1px solid var(--border);font-size:14px;font-weight:600">Team Members</div>
         <div style="max-height:400px;overflow-y:auto"><table class="users-table">
-          <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Desk</th></tr></thead>
+          <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Desk</th><th>Action</th></tr></thead>
           <tbody>`;
     users.forEach(u => {
       html += `<tr>
@@ -1653,6 +1663,7 @@ window.cleanupOldAbsences = async function() {
         <td style="color:var(--text2);font-size:12px">${esc(u.email)}</td>
         <td><span class="badge ${u.role==='admin'?'badge-std':'badge-flexi'}">${esc(u.role)}</span></td>
         <td style="font-family:monospace;font-size:12px">${u.seat_id||'—'}</td>
+        <td><button class="btn btn-ghost" style="font-size:11px;padding:4px 8px;color:var(--red)" onclick="removeUser('${u.id}', '${esc(u.name)}')">Remove</button></td>
       </tr>`;
     });
     html += `</tbody></table></div></div>`;

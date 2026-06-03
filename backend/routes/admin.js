@@ -92,7 +92,50 @@ router.delete('/absences/cleanup', async (req, res) => {
   }
 });
 
-module.exports = router;
+// DELETE /api/admin/users/:userId - Remove a user (and all associated data)
+router.delete('/users/:userId', async (req, res) => {
+  const { userId } = req.params;
+  
+  try {
+    // Check if user exists
+    const userCheck = await pool.query('SELECT id, name FROM users WHERE id = $1', [userId]);
+    if (userCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      
+      // Delete user's bookings
+      await client.query('DELETE FROM bookings WHERE user_id = $1', [userId]);
+      
+      // Delete user's absences
+      await client.query('DELETE FROM absences WHERE user_id = $1', [userId]);
+      
+      // Unassign any seats owned by the user
+      await client.query('UPDATE seats SET owner_id = NULL WHERE owner_id = $1', [userId]);
+      
+      // Delete the user
+      await client.query('DELETE FROM users WHERE id = $1', [userId]);
+      
+      await client.query('COMMIT');
+      
+      res.json({ 
+        success: true, 
+        message: `User ${userCheck.rows[0].name} removed successfully`
+      });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error('DELETE /admin/users/:userId error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
 // GET /api/admin/stats - Get dashboard statistics
 router.get('/stats', async (req, res) => {
@@ -125,3 +168,5 @@ router.get('/stats', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
+
+module.exports = router;

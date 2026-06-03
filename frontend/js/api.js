@@ -67,6 +67,9 @@ const api = {
   adminUnassignSeat: (seatId) => apiFetch('/admin/seats/' + seatId + '/unassign', {
     method: 'DELETE'
   }),
+  adminDeleteUser: (userId) => apiFetch('/admin/users/' + userId, {
+    method: 'DELETE'
+  }),
   getSeatBookingHistory: (seatId, dateFrom, dateTo) => 
     apiFetch(`/bookings/seat/${seatId}/history?dateFrom=${dateFrom}&dateTo=${dateTo}`),
 };
