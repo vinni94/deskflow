@@ -449,17 +449,19 @@ async function renderMap() {
             <div class="legend-item"><div class="legend-dot" style="background:var(--text3)"></div>Occupied</div>
           </div>
         </div>
-        <div class="floor-grid">
-          <div class="area-label" style="grid-column:span 8">FLEXI ZONE <div class="area-divider"></div></div>
-          ${flexiHTML}
-          <div style="grid-column:span 8;height:8px"></div>
-          <div class="area-label" style="grid-column:span 8">STANDARD DESKS <div class="area-divider"></div></div>
-          ${stdHTML}${emptyHTML}
-        </div>
-        <div id="floor-map-wrapper" style="position:relative;width:100%;max-width:700px;margin-top:24px;">
-          <img id="floor-map-image" src="Toren2.png" alt="Office Floor Plan" style="width:100%;border-radius:10px;border:1px solid var(--border);display:block;" />
-          <div id="floor-map-overlay" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;">
-            ${generateFloorMapHotspots(seats, dk)}
+        <div style="display:flex;gap:24px;align-items:flex-start;">
+          <div class="floor-grid" style="flex-shrink:0;">
+            <div class="area-label" style="grid-column:span 8">FLEXI ZONE <div class="area-divider"></div></div>
+            ${flexiHTML}
+            <div style="grid-column:span 8;height:8px"></div>
+            <div class="area-label" style="grid-column:span 8">STANDARD DESKS <div class="area-divider"></div></div>
+            ${stdHTML}${emptyHTML}
+          </div>
+          <div id="floor-map-wrapper" style="position:relative;flex:1;max-width:600px;">
+            <img id="floor-map-image" src="Toren2.png" alt="Office Floor Plan" style="width:100%;border-radius:10px;border:1px solid var(--border);display:block;" />
+            <div id="floor-map-overlay" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;">
+              ${generateFloorMapHotspots(seats, dk)}
+            </div>
           </div>
         </div>
       </div>`;
