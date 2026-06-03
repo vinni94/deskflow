@@ -161,18 +161,25 @@ router.post('/', requireAuth, async (req, res) => {
         console.log('[ABSENCE] Iterating date:', current, 'dow:', dow);
         if (dow !== 0 && dow !== 6) {
           const dk = current;
-          console.log('[ABSENCE] Inserting date:', dk);        for (const p of dbPeriods) {
-          const { rows } = await pool.query(
-            `INSERT INTO absences (user_id, date, period, absence_type)
-             VALUES ($1, $2::date, $3, $4)
-             ON CONFLICT (user_id, date, period)
-             DO UPDATE SET absence_type = EXCLUDED.absence_type
-             RETURNING id, date::text as date, period, absence_type`,
-            [req.user.id, dk, p, atype]
+          console.log('[ABSENCE] Inserting date:', dk);
+          
+          // First, delete any existing absences for this date to avoid partial updates
+          await pool.query(
+            `DELETE FROM absences WHERE user_id = $1 AND date = $2::date`,
+            [req.user.id, dk]
           );
-          console.log("[ABSENCE] INSERT result:", rows.length, "rows, date:", rows[0]?.date);
-          if (rows[0]) inserted.push(rows[0]);
-        }
+          
+          // Then insert the new absence(s)
+          for (const p of dbPeriods) {
+            const { rows } = await pool.query(
+              `INSERT INTO absences (user_id, date, period, absence_type)
+               VALUES ($1, $2::date, $3, $4)
+               RETURNING id, date::text as date, period, absence_type`,
+              [req.user.id, dk, p, atype]
+            );
+            console.log("[ABSENCE] INSERT result:", rows.length, "rows, date:", rows[0]?.date);
+            if (rows[0]) inserted.push(rows[0]);
+          }
         }
         current = addDaysString(current, 1);
       }
@@ -182,14 +189,19 @@ router.post('/', requireAuth, async (req, res) => {
     // Single date
     if (!date) return res.status(400).json({ error: 'date required' });
     if (isBeforeToday(date)) return res.status(400).json({ error: 'Date must be today or later' });
-    if (isBeforeToday(date)) return res.status(400).json({ error: 'Date must be today or later' });
+    
+    // First, delete any existing absences for this date to avoid partial updates
+    await pool.query(
+      `DELETE FROM absences WHERE user_id = $1 AND date = $2::date`,
+      [req.user.id, date]
+    );
+    
+    // Then insert the new absence(s)
     const inserted = [];
     for (const p of dbPeriods) {
       const { rows } = await pool.query(
         `INSERT INTO absences (user_id, date, period, absence_type)
          VALUES ($1, $2::date, $3, $4)
-         ON CONFLICT (user_id, date, period)
-         DO UPDATE SET absence_type = EXCLUDED.absence_type
          RETURNING id, date::text as date, period, absence_type`,
         [req.user.id, date, p, atype]
       );
