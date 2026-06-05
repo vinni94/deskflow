@@ -213,6 +213,8 @@ function loginSuccess(user) {
   // Clear previous user's absence data
   absState.absenceMap = {};
   absState.loaded = false;
+  absState.selectedType = 'wfh'; // ← add this
+  absState.selectedPeriod = 'full'; // ← add this
   // Load user-specific team immediately
   loadMyTeam();
   el('auth-screen').style.display = 'none';
@@ -232,6 +234,10 @@ function logout() {
   state.absencesCache = {};
   absState.absenceMap = {};  // Clear absence data on logout
   absState.loaded = false;
+  absState.selectedType = 'wfh';       // ← add this
+  absState.selectedPeriod = 'full';    // ← add this
+  absState.rangeStart = null;          // ← add this
+  absState.rangeEnd = null;    
   // Reset team calendar state completely
   teamCalState.myTeam = [];
   teamCalState.viewMode = 'individual';
@@ -834,16 +840,16 @@ let absState = {
 };
 
 async function renderAbsence() {
-  if (!absState.loaded) {
+    if (!absState.loaded) {
     const t = new Date();
     absState.calYear  = t.getFullYear();
     absState.calMonth = t.getMonth();
     absState.loaded = true;
     renderAbsenceUI();
-    await refreshAbsenceMap();   // only fetch from server on first load
+    await refreshAbsenceMap();
     renderAbsCalendar();
   } else {
-    renderAbsenceUI();           // return: show existing state, no server round-trip
+    renderAbsenceUI();
   }
 }
 
@@ -1179,10 +1185,16 @@ async function toggleDayAbsence(dk) {
   }
 
   try {
-    // Clear the full day first, then set the specific period(s)
-    await api.clearAbsenceRange(dk, dk, 'full');
-    if (newAM) await api.markAbsenceRange(dk, dk, newAM, 'AM');
-    if (newPM) await api.markAbsenceRange(dk, dk, newPM, 'PM');
+    if (!newAM && !newPM) {
+      await api.clearAbsenceRange(dk, dk, 'full');
+    } else if (newAM && newPM && newAM === newPM) {
+      await api.markAbsenceRange(dk, dk, newAM, 'full');
+    } else {
+      // Clear the full day first, then set the specific period(s)
+      await api.clearAbsenceRange(dk, dk, 'full');
+      if (newAM) await api.markAbsenceRange(dk, dk, newAM, 'AM');
+      if (newPM) await api.markAbsenceRange(dk, dk, newPM, 'PM');
+    }
 
     state.seatsCache = {};
     if (newAM || newPM) {

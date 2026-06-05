@@ -163,11 +163,18 @@ router.post('/', requireAuth, async (req, res) => {
           const dk = current;
           console.log('[ABSENCE] Inserting date:', dk);
           
-          // First, delete any existing absences for this date to avoid partial updates
-          await pool.query(
-            `DELETE FROM absences WHERE user_id = $1 AND date = $2::date`,
-            [req.user.id, dk]
-          );
+          // First, delete any existing absences for this period to avoid partial updates
+          if (aperiod === 'full') {
+            await pool.query(
+              `DELETE FROM absences WHERE user_id = $1 AND date = $2::date`,
+              [req.user.id, dk]
+            );
+          } else {
+            await pool.query(
+              `DELETE FROM absences WHERE user_id = $1 AND date = $2::date AND period = $3`,
+              [req.user.id, dk, aperiod]
+            );
+          }
           
           // Then insert the new absence(s)
           for (const p of dbPeriods) {
@@ -190,11 +197,18 @@ router.post('/', requireAuth, async (req, res) => {
     if (!date) return res.status(400).json({ error: 'date required' });
     if (isBeforeToday(date)) return res.status(400).json({ error: 'Date must be today or later' });
     
-    // First, delete any existing absences for this date to avoid partial updates
-    await pool.query(
-      `DELETE FROM absences WHERE user_id = $1 AND date = $2::date`,
-      [req.user.id, date]
-    );
+    // First, delete any existing absences for this period to avoid partial updates
+    if (aperiod === 'full') {
+      await pool.query(
+        `DELETE FROM absences WHERE user_id = $1 AND date = $2::date`,
+        [req.user.id, date]
+      );
+    } else {
+      await pool.query(
+        `DELETE FROM absences WHERE user_id = $1 AND date = $2::date AND period = $3`,
+        [req.user.id, date, aperiod]
+      );
+    }
     
     // Then insert the new absence(s)
     const inserted = [];
