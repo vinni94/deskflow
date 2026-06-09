@@ -1247,7 +1247,7 @@ async function resetAllToOffice() {
 async function refreshAbsenceMap() {
   const today = new Date(); today.setHours(0,0,0,0);
   const from  = dateKey(today);
-  const to    = new Date(today); to.setDate(to.getDate() + 84);
+  const to    = new Date(today); to.setDate(to.getDate() + 365);
   const rows  = await api.getAbsencesRange(from, dateKey(to));
   absState.absenceMap = {};
   rows.forEach(r => {
