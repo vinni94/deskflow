@@ -125,9 +125,13 @@ router.post('/', requireAuth, async (req, res) => {
       // Work with date strings directly using pure arithmetic
       function getDayOfWeek(dateStr) {
         const [y, m, d] = dateStr.split('-').map(Number);
-        const K = y % 100;
-        const J = Math.floor(y / 100);
-        let h = (d + Math.floor(13*(m+1)/5) + K + Math.floor(K/4) + Math.floor(J/4) - 2*J) % 7;
+        // Zeller's congruence: Jan and Feb are treated as months 13 and 14 of the previous year
+        let year = y;
+        let month = m;
+        if (month < 3) { month += 12; year--; }
+        const K = year % 100;
+        const J = Math.floor(year / 100);
+        let h = (d + Math.floor(13*(month+1)/5) + K + Math.floor(K/4) + Math.floor(J/4) - 2*J) % 7;
         return (h + 6) % 7;
       }
       
