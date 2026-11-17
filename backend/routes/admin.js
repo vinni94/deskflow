@@ -144,7 +144,7 @@ router.get('/stats', async (req, res) => {
   
   try {
     const [seatsResult, usersResult, bookingsResult, absencesResult] = await Promise.all([
-      pool.query('SELECT type, COUNT(*) as count FROM seats GROUP BY type'),
+      pool.query('SELECT type, COUNT(*) as count FROM seats WHERE active GROUP BY type'),
       pool.query('SELECT COUNT(*) as count FROM users'),
       pool.query('SELECT COUNT(*) as count FROM bookings WHERE date = $1', [targetDate]),
       pool.query('SELECT COUNT(DISTINCT user_id) as count FROM absences WHERE date = $1', [targetDate])

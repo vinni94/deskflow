@@ -6,23 +6,19 @@ async function updateSeats() {
     await client.query('BEGIN');
     
     // Add new standard seats
-    console.log('Adding new standard seats S16-S22...');
+    console.log('Adding new standard seats S23-S26...');
     await client.query(`
       INSERT INTO seats (id, type, zone) VALUES
-        ('S16','std','Charlie Wing'),
-        ('S17','std','Delta Wing'),
-        ('S18','std','Delta Wing'),
-        ('S19','std','Delta Wing'),
-        ('S20','std','Delta Wing'),
-        ('S21','std','Delta Wing'),
-        ('S22','std','Delta Wing')
+        ('S23','std','Delta Wing'),
+        ('S24','std','Delta Wing'),
+        ('S25','std','Delta Wing'),
+        ('S26','std','Bravo Wing')
       ON CONFLICT DO NOTHING
     `);
     
-    // Remove old flexi desks F5-F10
-    console.log('Removing flexi desks F5-F10...');
+    console.log('Retiring flexi desks other than F1...');
     await client.query(`
-      DELETE FROM seats WHERE id IN ('F5','F6','F7','F8','F9','F10')
+      UPDATE seats SET active = FALSE WHERE type = 'flexi' AND id <> 'F1'
     `);
     
     await client.query('COMMIT');
@@ -30,7 +26,8 @@ async function updateSeats() {
     // Verify the changes
     const result = await client.query(`
       SELECT type, COUNT(*) as count 
-      FROM seats 
+      FROM seats
+      WHERE active
       GROUP BY type 
       ORDER BY type
     `);

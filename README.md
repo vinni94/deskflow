@@ -171,6 +171,19 @@ All protected endpoints require `Authorization: Bearer <token>`.
 
 ### Render
 
+For an existing database, run `backend/db/migrate_seat_active.sql` first, then
+deploy the updated backend and frontend. After deployment, retire old flexi
+desks without deleting bookings:
+
+```sql
+UPDATE seats SET active = FALSE WHERE type = 'flexi' AND id <> 'F1';
+```
+
+Retired desks cannot receive new bookings. Existing bookings remain visible in
+My Bookings and can still be cancelled; notify users with upcoming bookings
+because those desks are no longer available. Do not run the demo seed script
+against an existing user database.
+
 1. New Web Service → connect repo
 2. Build command: `cd backend && npm install`
 3. Start command: `node backend/server.js`

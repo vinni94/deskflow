@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS seats (
   id          TEXT        PRIMARY KEY,     -- e.g. 'F1', 'S1'
   type        TEXT        NOT NULL CHECK (type IN ('flexi','std')),
   zone        TEXT        NOT NULL,
+  active      BOOLEAN     NOT NULL DEFAULT TRUE,
   owner_id    UUID        REFERENCES users(id) ON DELETE SET NULL,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -61,13 +62,6 @@ CREATE INDEX IF NOT EXISTS idx_bookings_seat_date   ON bookings(seat_id, date);
 -- ============================================================
 INSERT INTO seats (id, type, zone) VALUES
   ('F1','flexi','Flexi Zone'),
-  ('F2','flexi','Flexi Zone'),
-  ('F3','flexi','Flexi Zone'),
-  ('F4','flexi','Flexi Zone'),
-  ('F5','flexi','Flexi Zone'),
-  ('F6','flexi','Flexi Zone'),
-  ('F7','flexi','Flexi Zone'),
-  ('F8','flexi','Flexi Zone'),
   ('S1','std','Alpha Wing'),
   ('S2','std','Alpha Wing'),
   ('S3','std','Alpha Wing'),
@@ -83,8 +77,17 @@ INSERT INTO seats (id, type, zone) VALUES
   ('S13','std','Charlie Wing'),
   ('S14','std','Charlie Wing'),
   ('S15','std','Charlie Wing'),
-  ('F9','flexi','Flexi Zone'),
-  ('F10','flexi','Flexi Zone')
+  ('S16','std','Charlie Wing'),
+  ('S17','std','Delta Wing'),
+  ('S18','std','Delta Wing'),
+  ('S19','std','Delta Wing'),
+  ('S20','std','Delta Wing'),
+  ('S21','std','Delta Wing'),
+  ('S22','std','Delta Wing'),
+  ('S23','std','Delta Wing'),
+  ('S24','std','Delta Wing'),
+  ('S25','std','Delta Wing'),
+  ('S26','std','Bravo Wing')
 ON CONFLICT DO NOTHING;
 
 -- NOTE: User seeds are handled by the application seed script (npm run seed)

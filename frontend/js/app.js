@@ -21,35 +21,35 @@ const state = {
 // Format: { x: left%, y: top%, width: %, height: % }
 // ══════════════════════════════════════════════════════════════
 const DESK_COORDINATES = {
-  // ========== FLEXI DESKS (4 total) - UPDATED ==========
-  'F1': { x: 61.3, y: 43.4, width: 10, height: 3 },
-  'F2': { x: 61.3, y: 60.1, width: 10, height: 3 },
-  'F3': { x: 61.8, y: 87.5, width: 10, height: 3 },
-  'F4': { x: 76.4, y: 87.6, width: 10, height: 3 },
-  // ========== STANDARD DESKS (22 total) - UPDATED ==========
-  'S1': { x: 13.5, y: 31.9, width: 10, height: 3 },
-  'S2': { x: 13.4, y: 35.4, width: 10, height: 3 },
-  'S3': { x: 61.2, y: 40.2, width: 10, height: 3 },
-  'S4': { x: 75.8, y: 40.3, width: 10, height: 3 },
-  'S5': { x: 76.2, y: 43.5, width: 10, height: 3 },
-  'S6': { x: 80.5, y: 50.0, width: 5.2, height: 6.5 },
-  'S7': { x: 76.0, y: 20.7, width: 10, height: 3 },
-  'S8': { x: 61.0, y: 25.2, width: 10, height: 3 },
-  'S9': { x: 76.0, y: 24.0, width: 10, height: 3 },
-  'S10': { x: 76.3, y: 30.3, width: 10, height: 3 },
-  'S11': { x: 76.3, y: 33.4, width: 10, height: 3 },
-  'S12': { x: 61.1, y: 33.4, width: 10, height: 3 },
-  'S13': { x: 61.0, y: 28.3, width: 10, height: 3 },
-  'S14': { x: 76.6, y: 60.1, width: 10, height: 3 },
-  'S15': { x: 61.4, y: 65.8, width: 10, height: 3 },
-  'S16': { x: 76.6, y: 63.4, width: 10, height: 3 },
-  'S17': { x: 61.3, y: 68.9, width: 10, height: 3 },
-  'S18': { x: 76.6, y: 70.6, width: 10, height: 3 },
-  'S19': { x: 76.7, y: 73.7, width: 10, height: 3 },
-  'S20': { x: 76.6, y: 80.3, width: 10, height: 3 },
-  'S21': { x: 61.8, y: 90.8, width: 10, height: 3 },
-  'S22': { x: 76.8, y: 91.0, width: 10, height: 3 },
-  
+  // Flexi desk (1 total)
+  'F1': { x: 61.5, y: 60.3, width: 9.5, height: 2.8 },
+  // Standard desks (26 total)
+  'S1': { x: 13.8, y: 32.0, width: 9.5, height: 2.8 },
+  'S2': { x: 13.8, y: 35.6, width: 9.5, height: 2.8 },
+  'S3': { x: 61.5, y: 40.5, width: 9.5, height: 2.8 },
+  'S4': { x: 76.3, y: 40.5, width: 9.5, height: 2.8 },
+  'S5': { x: 79.0, y: 43.7, width: 4.4, height: 6.1 },
+  'S6': { x: 79.0, y: 50.3, width: 4.4, height: 6.1 },
+  'S7': { x: 76.5, y: 20.9, width: 9.5, height: 2.8 },
+  'S8': { x: 61.2, y: 25.3, width: 9.5, height: 2.8 },
+  'S9': { x: 76.5, y: 23.9, width: 9.5, height: 2.8 },
+  'S10': { x: 76.5, y: 30.5, width: 9.5, height: 2.8 },
+  'S11': { x: 76.5, y: 33.5, width: 9.5, height: 2.8 },
+  'S12': { x: 61.2, y: 33.6, width: 9.5, height: 2.8 },
+  'S13': { x: 61.2, y: 28.4, width: 9.5, height: 2.8 },
+  'S14': { x: 76.8, y: 60.3, width: 9.5, height: 2.8 },
+  'S15': { x: 61.5, y: 65.9, width: 9.5, height: 2.8 },
+  'S16': { x: 76.8, y: 63.4, width: 9.5, height: 2.8 },
+  'S17': { x: 61.5, y: 69.0, width: 9.5, height: 2.8 },
+  'S18': { x: 76.8, y: 70.6, width: 9.5, height: 2.8 },
+  'S19': { x: 76.8, y: 73.7, width: 9.5, height: 2.8 },
+  'S20': { x: 77.8, y: 78.6, width: 4.4, height: 6.1 },
+  'S21': { x: 62.1, y: 91.0, width: 9.5, height: 2.8 },
+  'S22': { x: 76.8, y: 91.1, width: 9.5, height: 2.8 },
+  'S23': { x: 72.3, y: 78.6, width: 4.4, height: 6.1 },
+  'S24': { x: 62.1, y: 87.6, width: 9.5, height: 2.8 },
+  'S25': { x: 76.8, y: 87.7, width: 9.5, height: 2.8 },
+  'S26': { x: 66.4, y: 43.7, width: 4.4, height: 6.1 },
 };
 
 
@@ -80,6 +80,7 @@ function weekStart(d) {
 }
 function el(id) { return document.getElementById(id); }
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function isActiveSeat(seat) { return seat.active !== false; }
 
 // ── TOKEN / SESSION ──────────────────────────────────────────
 function saveToken(token) { localStorage.setItem('df_token', token); }
@@ -402,6 +403,7 @@ function unhighlightDeskOnMap(seatId) {
 function generateFloorMapHotspots(seats, dk) {
   let hotspots = '';
   seats.forEach(s => {
+    if (!isActiveSeat(s)) return;
     const coords = DESK_COORDINATES[s.id];
     if (!coords) return;
     
@@ -424,7 +426,7 @@ async function renderMap() {
     const hasPMStdBooking   = seats.some(s => s.type === 'std' && s.pm_booked_by_id === u.id);
     const hasFlexiBooking   = seats.some(s => s.type === 'flexi' && s.booked_by_id === u.id);
 
-    const seatsByType = (type) => seats.filter(s => s.type === type);
+    const seatsByType = (type) => seats.filter(s => isActiveSeat(s) && s.type === type);
     const mkSeat = (s) => {
       const cls  = getSeatClass(s, u, hasAMStdBooking, hasPMStdBooking, hasFlexiBooking);
       const icon = getSeatIcon(cls);
@@ -555,11 +557,13 @@ async function showTooltipForSeat(e, seatId, dk) {
 
   if (s.type === 'flexi') {
     const myBooked = s.booked_by_id === u.id;
+    const hasOtherFlexiBooking = seats.some(sx => sx.type === 'flexi' && sx.id !== s.id && sx.booked_by_id === u.id);
+    const unavailable = s.booked_by_id || hasOtherFlexiBooking;
     html += `<div class="tooltip-row"><span class="tooltip-label">Status</span>
-             <span class="tooltip-val ${s.booked_by_id?'t-red':'t-blue'}">${s.booked_by_id?'Booked':'Available'}</span></div>`;
+             <span class="tooltip-val ${unavailable?'t-red':'t-blue'}">${s.booked_by_id?'Booked':hasOtherFlexiBooking?'You already have a flexi booking':'Available'}</span></div>`;
     if (s.booked_by_id) html += `<div class="tooltip-row"><span class="tooltip-label">By</span>
                                   <span class="tooltip-val">${myBooked?'You':esc(s.booked_by_name)}</span></div>`;
-    html += `<div style="margin-top:8px;font-size:11px;color:var(--text3)">${myBooked?'Click to cancel':'Click to book'}</div>`;
+    html += `<div style="margin-top:8px;font-size:11px;color:var(--text3)">${myBooked?'Click to cancel':unavailable?'Not available':'Click to book'}</div>`;
   } else {
     const amAbs = s.absent_periods && s.absent_periods.includes('AM');
     const pmAbs = s.absent_periods && s.absent_periods.includes('PM');
@@ -653,6 +657,10 @@ async function onSeatClick(seatId, dk) {
         ]
       });
     } else {
+      if (seats.some(sx => sx.type === 'flexi' && sx.booked_by_id === u.id)) {
+        showToast('You already have a flexi desk booked today. Cancel it first to book another.', 'warn');
+        return;
+      }
       // Cross-type: cannot book flexi if user has a std booking that day
       const hasStdBookingToday = seats.some(sx => sx.type === 'std' &&
         (sx.am_booked_by_id === u.id || sx.pm_booked_by_id === u.id));
@@ -1506,6 +1514,7 @@ async function renderBookings() {
             <div class="booking-seat">Desk ${esc(b.seat_id)} ${typeBadge}</div>
             <div class="booking-meta" style="margin-top:2px;font-weight:500;color:var(--text)">${periodLabel}</div>
             <div class="booking-meta">${esc(b.zone)}</div>
+            ${b.seat_active === false ? '<div class="booking-meta" style="color:var(--red)">This desk has been retired and is no longer available.</div>' : ''}
           </div>
         </div>
         ${cancelBtns}
@@ -2353,6 +2362,7 @@ async function renderBookingHistory() {
 function generateBookingHistoryHotspots(seats) {
   let hotspots = '';
   seats.forEach(s => {
+    if (!isActiveSeat(s)) return;
     const coords = DESK_COORDINATES[s.id];
     if (!coords) return;
     

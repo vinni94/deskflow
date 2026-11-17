@@ -18,6 +18,7 @@ router.get('/', requireAuth, async (req, res) => {
          s.id,
          s.type,
          s.zone,
+         s.active,
          s.owner_id,
          u.name              AS owner_name,
 
@@ -64,7 +65,9 @@ router.get('/', requireAuth, async (req, res) => {
        LEFT JOIN users  lgbu    ON lgbu.id = lgb.user_id
        -- Owner absences
        LEFT JOIN absences a ON a.user_id = s.owner_id AND a.date = $1
-       GROUP BY s.id, s.type, s.zone, s.owner_id, u.name,
+       WHERE s.active OR fb.user_id = $2 OR amb.user_id = $2
+                      OR pmb.user_id = $2 OR lgb.user_id = $2
+       GROUP BY s.id, s.type, s.zone, s.active, s.owner_id, u.name,
                 fb.id, fb.user_id, fbu.name,
                 amb.id, amb.user_id, ambu.name,
                 pmb.id, pmb.user_id, pmbu.name,
@@ -72,7 +75,7 @@ router.get('/', requireAuth, async (req, res) => {
        ORDER BY s.type DESC,
                 SUBSTRING(s.id FROM '[A-Z]+') ASC,
                 CAST(SUBSTRING(s.id FROM '[0-9]+') AS INT) ASC`,
-      [date]
+      [date, req.user.id]
     );
 
     res.json(rows);

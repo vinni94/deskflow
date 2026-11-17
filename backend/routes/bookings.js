@@ -21,6 +21,10 @@ router.post('/', requireAuth, async (req, res) => {
       return res.status(404).json({ error: 'Seat not found' });
     }
     const seat = seatRes.rows[0];
+    if (!seat.active) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'This desk is no longer available for booking' });
+    }
 
     // Validate period vs seat type
     if (seat.type === 'flexi' && period !== 'full') {
@@ -156,7 +160,7 @@ router.delete('/:id', requireAuth, async (req, res) => {
 router.get('/mine', requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      `SELECT b.id, b.seat_id, b.date::text as date, b.period, s.type AS seat_type, s.zone
+      `SELECT b.id, b.seat_id, b.date::text as date, b.period, s.type AS seat_type, s.zone, s.active AS seat_active
        FROM bookings b
        JOIN seats s ON s.id = b.seat_id
        WHERE b.user_id=$1
