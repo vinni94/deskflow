@@ -21,9 +21,12 @@ const state = {
 // Format: { x: left%, y: top%, width: %, height: % }
 // ══════════════════════════════════════════════════════════════
 const DESK_COORDINATES = {
-  // Flexi desk (1 total)
+  // Flexi desks (4 total)
   'F1': { x: 61.5, y: 60.3, width: 9.5, height: 2.8 },
-  // Standard desks (26 total)
+  'F2': { x: 74.3, y: 50.3, width: 4.4, height: 6.1 },
+  'F3': { x: 62.1, y: 87.6, width: 9.5, height: 2.8 },
+  'F4': { x: 23.7, y: 32.1, width: 4.4, height: 6.1 },
+  // Standard desks (25 total)
   'S1': { x: 13.8, y: 32.0, width: 9.5, height: 2.8 },
   'S2': { x: 13.8, y: 35.6, width: 9.5, height: 2.8 },
   'S3': { x: 61.5, y: 40.5, width: 9.5, height: 2.8 },
@@ -47,7 +50,6 @@ const DESK_COORDINATES = {
   'S21': { x: 62.1, y: 91.0, width: 9.5, height: 2.8 },
   'S22': { x: 76.8, y: 91.1, width: 9.5, height: 2.8 },
   'S23': { x: 72.3, y: 78.6, width: 4.4, height: 6.1 },
-  'S24': { x: 62.1, y: 87.6, width: 9.5, height: 2.8 },
   'S25': { x: 76.8, y: 87.7, width: 9.5, height: 2.8 },
   'S26': { x: 66.4, y: 43.7, width: 4.4, height: 6.1 },
 };

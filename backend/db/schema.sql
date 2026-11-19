@@ -62,6 +62,9 @@ CREATE INDEX IF NOT EXISTS idx_bookings_seat_date   ON bookings(seat_id, date);
 -- ============================================================
 INSERT INTO seats (id, type, zone) VALUES
   ('F1','flexi','Flexi Zone'),
+  ('F2','flexi','Flexi Zone'),
+  ('F3','flexi','Flexi Zone'),
+  ('F4','flexi','Flexi Zone'),
   ('S1','std','Alpha Wing'),
   ('S2','std','Alpha Wing'),
   ('S3','std','Alpha Wing'),
@@ -85,7 +88,6 @@ INSERT INTO seats (id, type, zone) VALUES
   ('S21','std','Delta Wing'),
   ('S22','std','Delta Wing'),
   ('S23','std','Delta Wing'),
-  ('S24','std','Delta Wing'),
   ('S25','std','Delta Wing'),
   ('S26','std','Bravo Wing')
 ON CONFLICT DO NOTHING;

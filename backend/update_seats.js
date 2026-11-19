@@ -1,4 +1,6 @@
 const pool = require('./db/pool');
+const fs = require('fs');
+const path = require('path');
 
 async function updateSeats() {
   const client = await pool.connect();
@@ -6,20 +8,18 @@ async function updateSeats() {
     await client.query('BEGIN');
     
     // Add new standard seats
-    console.log('Adding new standard seats S23-S26...');
+    console.log('Adding current standard seats...');
     await client.query(`
       INSERT INTO seats (id, type, zone) VALUES
         ('S23','std','Delta Wing'),
-        ('S24','std','Delta Wing'),
         ('S25','std','Delta Wing'),
         ('S26','std','Bravo Wing')
       ON CONFLICT DO NOTHING
     `);
     
-    console.log('Retiring flexi desks other than F1...');
-    await client.query(`
-      UPDATE seats SET active = FALSE WHERE type = 'flexi' AND id <> 'F1'
-    `);
+    console.log('Applying current flexi and standard desk layout...');
+    const migration = fs.readFileSync(path.join(__dirname, 'db/migrate_current_layout.sql'), 'utf8');
+    await client.query(migration);
     
     await client.query('COMMIT');
     

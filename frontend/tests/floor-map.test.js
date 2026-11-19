@@ -52,3 +52,18 @@ test('retired seats are hidden from the map and flagged in bookings', async () =
   await vm.runInContext('renderBookings()', context);
   assert.match(elements['main-content'].innerHTML, /has been retired/);
 });
+
+test('new flexi desks have hotspots at their updated positions', async () => {
+  const { context, elements } = createApp([
+    { id: 'F2', type: 'flexi', active: true },
+    { id: 'F3', type: 'flexi', active: true },
+    { id: 'F4', type: 'flexi', active: true },
+    { id: 'S24', type: 'std', active: false },
+  ]);
+  await vm.runInContext('renderMap()', context);
+  const html = elements['main-content'].innerHTML;
+  assert.match(html, /data-seat-id="F2" style="[^"]*left:74\.3%;top:50\.3%;width:4\.4%;height:6\.1%/);
+  assert.match(html, /data-seat-id="F3" style="[^"]*left:62\.1%;top:87\.6%;width:9\.5%;height:2\.8%/);
+  assert.match(html, /data-seat-id="F4" style="[^"]*left:23\.7%;top:32\.1%;width:4\.4%;height:6\.1%/);
+  assert.doesNotMatch(html, /class="seat-id">S24|data-seat-id="S24"/);
+});
